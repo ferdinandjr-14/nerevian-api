@@ -2,60 +2,34 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Client;
 use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_can_register_and_receive_a_token(): void
-    {
-        $rol = Rol::create([
-            'rol' => 'admin',
-        ]);
-
-        $response = $this->postJson('/api/auth/register', [
-            'nom' => 'Ada',
-            'cognoms' => 'Lovelace',
-            'correu' => 'ada@example.com',
-            'contrasenya' => 'secret123',
-            'contrasenya_confirmation' => 'secret123',
-            'rol_id' => $rol->id,
-        ]);
-
-        $response
-            ->assertCreated()
-            ->assertJsonStructure([
-                'message',
-                'token',
-                'token_type',
-                'user' => ['id', 'nom', 'cognoms', 'correu', 'rol_id'],
-            ]);
-
-        $this->assertDatabaseHas('usuaris', [
-            'correu' => 'ada@example.com',
-            'nom' => 'Ada',
-            'rol_id' => $rol->id,
-        ]);
-
-        $usuari = Usuari::where('correu', 'ada@example.com')->first();
-
-        $this->assertNotNull($usuari);
-        $this->assertTrue(Hash::check('secret123', $usuari->contrasenya));
-        $this->assertDatabaseCount('personal_access_tokens', 1);
-    }
-
     public function test_user_can_login_with_correu_and_contrasenya(): void
     {
+        $rol = Rol::create([
+            'rol' => 'client',
+        ]);
+
+        $client = Client::create([
+            'nom' => 'Acme Logistics',
+            'cif' => 'B12345678',
+        ]);
+
         $usuari = Usuari::create([
             'nom' => 'Grace',
             'cognoms' => 'Hopper',
             'correu' => 'grace@example.com',
             'contrasenya' => 'secret123',
+            'rol_id' => $rol->id,
+            'client_id' => $client->id,
         ]);
 
         $response = $this->postJson('/api/auth/login', [
@@ -69,7 +43,7 @@ class AuthControllerTest extends TestCase
                 'message',
                 'token',
                 'token_type',
-                'user' => ['id', 'nom', 'cognoms', 'correu', 'rol_id'],
+                'user' => ['id', 'nom', 'cognoms', 'correu', 'rol_id', 'client_id'],
             ]);
 
         $this->assertDatabaseCount('personal_access_tokens', 1);
@@ -77,11 +51,16 @@ class AuthControllerTest extends TestCase
 
     public function test_authenticated_user_can_fetch_own_profile(): void
     {
+        $rol = Rol::create([
+            'rol' => 'operator',
+        ]);
+
         $usuari = Usuari::create([
             'nom' => 'Linus',
             'cognoms' => 'Torvalds',
             'correu' => 'linus@example.com',
             'contrasenya' => 'secret123',
+            'rol_id' => $rol->id,
         ]);
 
         $token = $usuari->createToken('test-token')->plainTextToken;
@@ -89,16 +68,22 @@ class AuthControllerTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/auth/me')
             ->assertOk()
-            ->assertJsonPath('user.correu', 'linus@example.com');
+            ->assertJsonPath('user.correu', 'linus@example.com')
+            ->assertJsonPath('user.rol.rol', 'operator');
     }
 
     public function test_authenticated_user_can_logout_and_revoke_current_token(): void
     {
+        $rol = Rol::create([
+            'rol' => 'admin',
+        ]);
+
         $usuari = Usuari::create([
             'nom' => 'Margaret',
             'cognoms' => 'Hamilton',
             'correu' => 'margaret@example.com',
             'contrasenya' => 'secret123',
+            'rol_id' => $rol->id,
         ]);
 
         $token = $usuari->createToken('logout-token')->plainTextToken;

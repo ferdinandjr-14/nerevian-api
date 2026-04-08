@@ -19,6 +19,8 @@ class Usuari extends Authenticatable
         'nom',
         'cognoms',
         'rol_id',
+        'client_id',
+        'dni_document_path',
     ];
 
     protected $hidden = [
@@ -43,6 +45,11 @@ class Usuari extends Authenticatable
         return $this->belongsTo(Rol::class, 'rol_id');
     }
 
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
     public function ofertes()
     {
         return $this->hasMany(Oferta::class, 'operador_id');
@@ -51,5 +58,15 @@ class Usuari extends Authenticatable
     public function ofertesComAgentComercial()
     {
         return $this->hasMany(Oferta::class, 'agent_comercial_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'usuari_id');
+    }
+
+    public function uploadedDocuments()
+    {
+        return $this->hasMany(Document::class, 'uploaded_by_id');
     }
 }
