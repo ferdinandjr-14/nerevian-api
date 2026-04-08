@@ -1,0 +1,93 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Usuari;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+
+class AuthController extends Controller
+{
+    public function register(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nom' => ['required', 'string', 'max:255'],
+            'cognoms' => ['nullable', 'string', 'max:255'],
+            'correu' => ['required', 'string', 'email', 'max:255', 'unique:usuaris,correu'],
+            'contrasenya' => ['required', 'string', 'min:8', 'confirmed'],
+            'rol_id' => ['nullable', 'integer', 'exists:rols,id'],
+            'token_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $usuari = Usuari::create([
+            'nom' => $validated['nom'],
+            'cognoms' => $validated['cognoms'] ?? null,
+            'correu' => $validated['correu'],
+            'contrasenya' => $validated['contrasenya'],
+            'rol_id' => $validated['rol_id'] ?? null,
+        ]);
+
+        $token = $usuari->createToken($validated['token_name'] ?? $request->userAgent() ?? 'api-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Usuari registrat correctament.',
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $usuari->load('rol'),
+        ], 201);
+    }
+
+    public function login(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'correu' => ['required', 'string', 'email'],
+            'contrasenya' => ['required', 'string'],
+            'token_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $usuari = Usuari::query()
+            ->with('rol')
+            ->where('correu', $validated['correu'])
+            ->first();
+
+        if (! $usuari || ! Hash::check($validated['contrasenya'], $usuari->contrasenya)) {
+            throw ValidationException::withMessages([
+                'correu' => ['Les credencials no son correctes.'],
+            ]);
+        }
+
+        $token = $usuari->createToken($validated['token_name'] ?? $request->userAgent() ?? 'api-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Sessio iniciada correctament.',
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $usuari,
+        ]);
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        return response()->json([
+            'user' => $request->user()->load('rol'),
+        ]);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $token = $request->user()?->currentAccessToken();
+
+        if ($token) {
+            $token->delete();
+        } else {
+            $request->user()?->tokens()->delete();
+        }
+
+        return response()->json([
+            'message' => 'Sessio tancada correctament.',
+        ]);
+    }
+}
