@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
-use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,16 +17,12 @@ class UserController extends Controller
     {
         $this->requireRoles($request, ['admin']);
 
-        $query = Usuari::query()->with(['rol', 'client'])->orderBy('id');
+        $query = Usuari::query()->with(['rol'])->orderBy('id');
 
         if ($request->filled('rol')) {
             $query->whereHas('rol', function ($builder) use ($request): void {
                 $builder->where('rol', $request->string('rol')->toString());
             });
-        }
-
-        if ($request->filled('client_id')) {
-            $query->where('client_id', $request->integer('client_id'));
         }
 
         return response()->json($query->paginate((int) $request->integer('per_page', 15)));
@@ -38,7 +33,7 @@ class UserController extends Controller
         $this->requireRoles($request, ['admin']);
 
         return response()->json([
-            'user' => $usuari->load(['rol', 'client']),
+            'user' => $usuari->load(['rol']),
         ]);
     }
 
@@ -47,13 +42,12 @@ class UserController extends Controller
         $this->requireRoles($request, ['admin']);
 
         $validated = $request->validate($this->rules());
-        $validated['client_id'] = $this->normalizedClientId($validated['rol_id'], $validated['client_id'] ?? null);
 
         $usuari = Usuari::create($validated);
 
         return response()->json([
             'message' => 'Usuari creat correctament.',
-            'user' => $usuari->load(['rol', 'client']),
+            'user' => $usuari->load(['rol']),
         ], 201);
     }
 
@@ -63,13 +57,6 @@ class UserController extends Controller
 
         $validated = $request->validate($this->rules($usuari));
 
-        if (array_key_exists('rol_id', $validated) || array_key_exists('client_id', $validated)) {
-            $validated['client_id'] = $this->normalizedClientId(
-                $validated['rol_id'] ?? $usuari->rol_id,
-                $validated['client_id'] ?? $usuari->client_id
-            );
-        }
-
         if (empty($validated['contrasenya'] ?? null)) {
             unset($validated['contrasenya']);
         }
@@ -78,7 +65,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuari actualitzat correctament.',
-            'user' => $usuari->fresh()->load(['rol', 'client']),
+            'user' => $usuari->fresh()->load(['rol']),
         ]);
     }
 
@@ -113,20 +100,6 @@ class UserController extends Controller
             ],
             'contrasenya' => $passwordRules,
             'rol_id' => [$usuari ? 'sometimes' : 'required', 'integer', 'exists:rols,id'],
-            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
         ];
-    }
-
-    private function normalizedClientId(int $rolId, ?int $clientId): ?int
-    {
-        $roleName = Rol::query()->whereKey($rolId)->valueOrFail('rol');
-
-        if ($roleName === 'client') {
-            abort_if($clientId === null, 422, 'Client users must be linked to a client record.');
-
-            return $clientId;
-        }
-
-        return null;
     }
 }

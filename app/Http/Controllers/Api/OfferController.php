@@ -26,7 +26,6 @@ class OfferController extends Controller
         'incoterm.trackingStep',
         'client',
         'operador.rol',
-        'operador.client',
         'agentComercial.rol',
         'transportista.ciutat.pais',
         'portOrigen.ciutat.pais',
@@ -45,10 +44,6 @@ class OfferController extends Controller
         $query = Oferta::query()
             ->with($this->relations)
             ->latest('id');
-
-        if ($this->hasRole($user, 'client')) {
-            $query->where('client_id', $user->client_id);
-        }
 
         $scope = $request->string('scope')->toString();
         $status = $request->string('status')->toString();

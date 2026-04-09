@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\Oferta;
-use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Http\Request;
 
@@ -13,25 +12,9 @@ trait AuthorizesApiRequests
     {
         $user = $request->user();
 
-        if (! $user instanceof Usuari && $this->authenticationDisabled()) {
-            $fallbackRole = Rol::query()->where('rol', 'admin')->first() ?? new Rol(['rol' => 'admin']);
-
-            $fallbackUser = new Usuari([
-                'nom' => 'Temporary',
-                'cognoms' => 'Admin',
-                'correu' => 'temporary-admin@local.test',
-                'rol_id' => $fallbackRole->id,
-            ]);
-
-            $fallbackUser->setRelation('rol', $fallbackRole);
-            $fallbackUser->setRelation('client', null);
-
-            return $fallbackUser;
-        }
-
         abort_if(! $user instanceof Usuari, 401, 'Unauthenticated.');
 
-        $user->loadMissing('rol', 'client');
+        $user->loadMissing('rol');
 
         return $user;
     }
@@ -39,10 +22,6 @@ trait AuthorizesApiRequests
     protected function requireRoles(Request $request, array $roles): Usuari
     {
         $user = $this->currentUser($request);
-
-        if ($this->authenticationDisabled()) {
-            return $user;
-        }
 
         abort_if(
             ! in_array($this->roleName($user), $roles, true),
@@ -67,23 +46,7 @@ trait AuthorizesApiRequests
 
     protected function authorizeOfferAccess(Usuari $user, Oferta $oferta): void
     {
-        if ($this->hasRole($user, 'admin', 'operator', 'commercial')) {
-            return;
-        }
-
-        if (
-            $this->hasRole($user, 'client')
-            && $user->client_id !== null
-        ) {
-            abort_unless(
-                Oferta::query()
-                    ->whereKey($oferta->getKey())
-                    ->where('client_id', $user->client_id)
-                    ->exists(),
-                403,
-                'You are not allowed to access this offer.'
-            );
-
+        if ($this->hasRole($user, 'admin', 'operator', 'commercial', 'client')) {
             return;
         }
 
@@ -92,6 +55,6 @@ trait AuthorizesApiRequests
 
     protected function authenticationDisabled(): bool
     {
-        return true;
+        return false;
     }
 }

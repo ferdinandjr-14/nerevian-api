@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Client;
 use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,18 +18,12 @@ class AuthControllerTest extends TestCase
             'rol' => 'client',
         ]);
 
-        $client = Client::create([
-            'nom' => 'Acme Logistics',
-            'cif' => 'B12345678',
-        ]);
-
         $usuari = Usuari::create([
             'nom' => 'Grace',
             'cognoms' => 'Hopper',
             'correu' => 'grace@example.com',
             'contrasenya' => 'secret123',
             'rol_id' => $rol->id,
-            'client_id' => $client->id,
         ]);
 
         $response = $this->postJson('/api/auth/login', [
@@ -44,7 +37,7 @@ class AuthControllerTest extends TestCase
                 'message',
                 'token',
                 'token_type',
-                'user' => ['id', 'nom', 'cognoms', 'correu', 'rol_id', 'client_id'],
+                'user' => ['id', 'nom', 'cognoms', 'correu', 'rol_id'],
             ]);
 
         $this->assertDatabaseCount('personal_access_tokens', 1);

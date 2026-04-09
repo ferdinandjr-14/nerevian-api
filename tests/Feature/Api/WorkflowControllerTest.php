@@ -24,10 +24,6 @@ class WorkflowControllerTest extends TestCase
     public function test_admin_can_create_a_client_user(): void
     {
         $admin = $this->createUser('admin');
-        $client = Client::create([
-            'nom' => 'Oceanic Cargo',
-            'cif' => 'A11111111',
-        ]);
 
         $response = $this->actingAsApi($admin)->postJson('/api/admin/users', [
             'nom' => 'Client',
@@ -36,12 +32,10 @@ class WorkflowControllerTest extends TestCase
             'contrasenya' => 'secret123',
             'contrasenya_confirmation' => 'secret123',
             'rol_id' => $this->roleId('client'),
-            'client_id' => $client->id,
         ]);
 
         $response
             ->assertCreated()
-            ->assertJsonPath('user.client_id', $client->id)
             ->assertJsonPath('user.rol.rol', 'client');
     }
 
@@ -55,7 +49,7 @@ class WorkflowControllerTest extends TestCase
         ]);
 
         $operator = $this->createUser('operator');
-        $clientUser = $this->createUser('client', $client->id);
+        $clientUser = $this->createUser('client');
 
         $offerResponse = $this->actingAsApi($operator)->postJson('/api/offers', [
             'tipus_transport_id' => TipusTransport::firstOrFail()->id,
@@ -122,15 +116,14 @@ class WorkflowControllerTest extends TestCase
         return $this;
     }
 
-    private function createUser(string $role, ?int $clientId = null): Usuari
+    private function createUser(string $role): Usuari
     {
         return Usuari::create([
             'nom' => ucfirst($role),
             'cognoms' => 'Tester',
-            'correu' => $role.($clientId ? $clientId : '').'@example.com',
+            'correu' => $role.'@example.com',
             'contrasenya' => 'secret123',
             'rol_id' => $this->roleId($role),
-            'client_id' => $clientId,
         ]);
     }
 

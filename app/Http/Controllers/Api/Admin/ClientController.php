@@ -19,7 +19,7 @@ class ClientController extends Controller
 
         return response()->json(
             Client::query()
-                ->withCount(['usuaris', 'ofertes'])
+                ->withCount(['ofertes'])
                 ->orderBy('nom')
                 ->paginate((int) $request->integer('per_page', 15))
         );
@@ -30,7 +30,7 @@ class ClientController extends Controller
         $this->requireRoles($request, ['admin']);
 
         return response()->json([
-            'client' => $client->load(['usuaris.rol', 'ofertes.estatOferta']),
+            'client' => $client->load(['ofertes.estatOferta']),
         ]);
     }
 

@@ -17,7 +17,7 @@ class ProfileController extends Controller
         $user = $this->currentUser($request);
 
         return response()->json([
-            'user' => $user->load(['rol', 'client']),
+            'user' => $user->load(['rol']),
         ]);
     }
 
@@ -40,7 +40,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Perfil actualitzat correctament.',
-            'user' => $user->fresh()->load(['rol', 'client']),
+            'user' => $user->fresh()->load(['rol']),
         ]);
     }
 }
