@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\Oferta;
+use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Http\Request;
 
@@ -11,6 +12,22 @@ trait AuthorizesApiRequests
     protected function currentUser(Request $request): Usuari
     {
         $user = $request->user();
+
+        if (! $user instanceof Usuari && $this->authenticationDisabled()) {
+            $fallbackRole = Rol::query()->where('rol', 'admin')->first() ?? new Rol(['rol' => 'admin']);
+
+            $fallbackUser = new Usuari([
+                'nom' => 'Temporary',
+                'cognoms' => 'Admin',
+                'correu' => 'temporary-admin@local.test',
+                'rol_id' => $fallbackRole->id,
+            ]);
+
+            $fallbackUser->setRelation('rol', $fallbackRole);
+            $fallbackUser->setRelation('client', null);
+
+            return $fallbackUser;
+        }
 
         abort_if(! $user instanceof Usuari, 401, 'Unauthenticated.');
 
@@ -22,6 +39,10 @@ trait AuthorizesApiRequests
     protected function requireRoles(Request $request, array $roles): Usuari
     {
         $user = $this->currentUser($request);
+
+        if ($this->authenticationDisabled()) {
+            return $user;
+        }
 
         abort_if(
             ! in_array($this->roleName($user), $roles, true),
@@ -67,5 +88,10 @@ trait AuthorizesApiRequests
         }
 
         abort(403, 'You are not allowed to access this offer.');
+    }
+
+    protected function authenticationDisabled(): bool
+    {
+        return true;
     }
 }

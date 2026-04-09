@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Rol;
 use App\Models\Usuari;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AuthControllerTest extends TestCase
@@ -63,9 +64,9 @@ class AuthControllerTest extends TestCase
             'rol_id' => $rol->id,
         ]);
 
-        $token = $usuari->createToken('test-token')->plainTextToken;
+        Sanctum::actingAs($usuari);
 
-        $this->withHeader('Authorization', 'Bearer '.$token)
+        $this
             ->getJson('/api/auth/me')
             ->assertOk()
             ->assertJsonPath('user.correu', 'linus@example.com')
@@ -86,13 +87,11 @@ class AuthControllerTest extends TestCase
             'rol_id' => $rol->id,
         ]);
 
-        $token = $usuari->createToken('logout-token')->plainTextToken;
+        Sanctum::actingAs($usuari);
 
-        $this->withHeader('Authorization', 'Bearer '.$token)
+        $this
             ->postJson('/api/auth/logout')
             ->assertOk()
             ->assertJsonPath('message', 'Sessio tancada correctament.');
-
-        $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 }

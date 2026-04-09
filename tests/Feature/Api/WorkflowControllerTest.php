@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Client;
-use App\Models\Document;
 use App\Models\EstatOferta;
 use App\Models\Incoterm;
 use App\Models\Oferta;
@@ -15,8 +14,6 @@ use App\Models\TipusTransport;
 use App\Models\TrackingStep;
 use App\Models\Usuari;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -116,64 +113,6 @@ class WorkflowControllerTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('tracking.status', 'Finalized');
-    }
-
-    public function test_operator_can_upload_offer_documents_and_client_can_list_them(): void
-    {
-        Storage::fake('local');
-        $this->seedStatuses();
-        [$incoterm] = $this->seedOfferCatalog();
-        $client = Client::create([
-            'nom' => 'Harbor Works',
-            'cif' => 'B44444444',
-        ]);
-
-        $operator = $this->createUser('operator');
-        $clientUser = $this->createUser('client', $client->id);
-
-        $offer = Oferta::create([
-            'tipus_transport_id' => TipusTransport::firstOrFail()->id,
-            'tipus_fluxe_id' => TipusFluxe::firstOrFail()->id,
-            'tipus_carrega_id' => TipusCarrega::firstOrFail()->id,
-            'incoterm_id' => $incoterm->id,
-            'client_id' => $client->id,
-            'operador_id' => $operator->id,
-            'estat_oferta_id' => $this->statusId('Accepted'),
-            'data_creacio' => now()->toDateString(),
-        ]);
-
-        $uploadResponse = $this->actingAsApi($operator)->postJson("/api/offers/{$offer->id}/documents", [
-            'file' => UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf'),
-        ]);
-
-        $uploadResponse
-            ->assertCreated()
-            ->assertJsonPath('document.oferta_id', $offer->id);
-
-        $document = Document::firstOrFail();
-        Storage::disk('local')->assertExists($document->path);
-
-        $this->actingAsApi($clientUser)->getJson("/api/offers/{$offer->id}/documents")
-            ->assertOk()
-            ->assertJsonCount(1, 'documents');
-    }
-
-    public function test_user_can_upload_dni_in_profile(): void
-    {
-        Storage::fake('local');
-        $user = $this->createUser('client');
-
-        $response = $this->actingAsApi($user)->postJson('/api/profile/dni', [
-            'file' => UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'),
-        ]);
-
-        $response
-            ->assertCreated()
-            ->assertJsonPath('document.tipus', 'dni');
-
-        $user->refresh();
-        $this->assertNotNull($user->dni_document_path);
-        Storage::disk('local')->assertExists($user->dni_document_path);
     }
 
     private function actingAsApi(Usuari $user): self

@@ -34,7 +34,6 @@ class OfferController extends Controller
         'aeroportOrigen.ciutat.pais',
         'aeroportDesti.ciutat.pais',
         'liniaTransportMaritim.ciutat.pais',
-        'documents.uploadedBy',
         'trackingEvents.trackingStep',
         'trackingEvents.updatedBy',
     ];

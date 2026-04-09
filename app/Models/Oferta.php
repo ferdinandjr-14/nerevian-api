@@ -130,11 +130,6 @@ class Oferta extends Model
         return $this->belongsTo(LiniaTransportMaritim::class, 'linia_transport_maritim_id');
     }
 
-    public function documents()
-    {
-        return $this->hasMany(Document::class, 'oferta_id');
-    }
-
     public function trackingEvents()
     {
         return $this->hasMany(OfertaTrackingEvent::class, 'oferta_id');

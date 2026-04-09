@@ -38,9 +38,7 @@ class UserController extends Controller
         $this->requireRoles($request, ['admin']);
 
         return response()->json([
-            'user' => $usuari->load(['rol', 'client', 'documents' => function ($query): void {
-                $query->latest();
-            }]),
+            'user' => $usuari->load(['rol', 'client']),
         ]);
     }
 

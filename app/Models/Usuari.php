@@ -20,7 +20,6 @@ class Usuari extends Authenticatable
         'cognoms',
         'rol_id',
         'client_id',
-        'dni_document_path',
     ];
 
     protected $hidden = [
@@ -58,15 +57,5 @@ class Usuari extends Authenticatable
     public function ofertesComAgentComercial()
     {
         return $this->hasMany(Oferta::class, 'agent_comercial_id');
-    }
-
-    public function documents()
-    {
-        return $this->hasMany(Document::class, 'usuari_id');
-    }
-
-    public function uploadedDocuments()
-    {
-        return $this->hasMany(Document::class, 'uploaded_by_id');
     }
 }
