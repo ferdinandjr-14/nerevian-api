@@ -14,7 +14,7 @@ trait AuthorizesApiRequests
 
         abort_if(! $user instanceof Usuari, 401, 'Unauthenticated.');
 
-        $user->loadMissing('rol');
+        $user->loadMissing('rol', 'client');
 
         return $user;
     }
@@ -34,7 +34,7 @@ trait AuthorizesApiRequests
 
     protected function roleName(Usuari $user): ?string
     {
-        $user->loadMissing('rol');
+        $user->loadMissing('rol', 'client');
 
         return $user->rol?->rol;
     }
@@ -46,7 +46,15 @@ trait AuthorizesApiRequests
 
     protected function authorizeOfferAccess(Usuari $user, Oferta $oferta): void
     {
-        if ($this->hasRole($user, 'admin', 'operator', 'commercial', 'client')) {
+        if ($this->hasRole($user, 'admin', 'operator', 'commercial')) {
+            return;
+        }
+
+        if (
+            $this->hasRole($user, 'client')
+            && $user->client_id !== null
+            && (int) $user->client_id === (int) $oferta->client_id
+        ) {
             return;
         }
 

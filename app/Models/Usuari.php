@@ -20,6 +20,7 @@ class Usuari extends Authenticatable
         'nom',
         'cognoms',
         'rol_id',
+        'client_id',
     ];
 
     protected $hidden = [
@@ -42,6 +43,11 @@ class Usuari extends Authenticatable
     public function rol()
     {
         return $this->belongsTo(Rol::class, 'rol_id');
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     public function ofertes()

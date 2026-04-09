@@ -23,7 +23,7 @@ class AuthController extends Controller
         ]);
 
         $usuari = Usuari::query()
-            ->with(['rol'])
+            ->with(['rol', 'client'])
             ->where('correu', $validated['correu'])
             ->first();
 
@@ -48,7 +48,7 @@ class AuthController extends Controller
         $user = $this->currentUser($request);
 
         return response()->json([
-            'user' => $user->load(['rol']),
+            'user' => $user->load(['rol', 'client']),
         ]);
     }
 

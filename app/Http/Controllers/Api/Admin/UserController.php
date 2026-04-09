@@ -17,12 +17,16 @@ class UserController extends Controller
     {
         $this->requireRoles($request, ['admin']);
 
-        $query = Usuari::query()->with(['rol'])->orderBy('id');
+        $query = Usuari::query()->with(['rol', 'client'])->orderBy('id');
 
         if ($request->filled('rol')) {
             $query->whereHas('rol', function ($builder) use ($request): void {
                 $builder->where('rol', $request->string('rol')->toString());
             });
+        }
+
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->integer('client_id'));
         }
 
         return response()->json($query->paginate((int) $request->integer('per_page', 15)));
@@ -33,7 +37,7 @@ class UserController extends Controller
         $this->requireRoles($request, ['admin']);
 
         return response()->json([
-            'user' => $usuari->load(['rol']),
+            'user' => $usuari->load(['rol', 'client']),
         ]);
     }
 
@@ -47,7 +51,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuari creat correctament.',
-            'user' => $usuari->load(['rol']),
+            'user' => $usuari->load(['rol', 'client']),
         ], 201);
     }
 
@@ -65,7 +69,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuari actualitzat correctament.',
-            'user' => $usuari->fresh()->load(['rol']),
+            'user' => $usuari->fresh()->load(['rol', 'client']),
         ]);
     }
 
@@ -100,6 +104,7 @@ class UserController extends Controller
             ],
             'contrasenya' => $passwordRules,
             'rol_id' => [$usuari ? 'sometimes' : 'required', 'integer', 'exists:rols,id'],
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
         ];
     }
 }
