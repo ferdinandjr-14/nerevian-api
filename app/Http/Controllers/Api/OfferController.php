@@ -33,8 +33,6 @@ class OfferController extends Controller
         'aeroportOrigen.ciutat.pais',
         'aeroportDesti.ciutat.pais',
         'liniaTransportMaritim.ciutat.pais',
-        'trackingEvents.trackingStep',
-        'trackingEvents.updatedBy',
     ];
 
     public function index(Request $request): JsonResponse

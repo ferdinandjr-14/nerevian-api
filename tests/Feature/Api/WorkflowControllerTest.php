@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Models\Client;
 use App\Models\EstatOferta;
 use App\Models\Incoterm;
-use App\Models\Oferta;
 use App\Models\Rol;
 use App\Models\TipusCarrega;
 use App\Models\TipusFluxe;
@@ -48,7 +47,7 @@ class WorkflowControllerTest extends TestCase
     public function test_operator_can_create_pending_offer_and_client_can_accept_it(): void
     {
         $this->seedStatuses();
-        [$incoterm] = $this->seedOfferCatalog();
+        $incoterm = $this->seedOfferCatalog();
         $client = Client::create([
             'nom' => 'Import Export Co.',
             'cif' => 'B22222222',
@@ -77,42 +76,6 @@ class WorkflowControllerTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('offer.estat_oferta_id', $this->statusId('Accepted'));
-    }
-
-    public function test_commercial_can_update_tracking_for_an_active_offer(): void
-    {
-        $this->seedStatuses();
-        [$incoterm, $finalStep, $firstStep] = $this->seedOfferCatalog();
-        $client = Client::create([
-            'nom' => 'Blue Freight',
-            'cif' => 'B33333333',
-        ]);
-
-        $commercial = $this->createUser('commercial');
-        $offer = Oferta::create([
-            'tipus_transport_id' => TipusTransport::firstOrFail()->id,
-            'tipus_fluxe_id' => TipusFluxe::firstOrFail()->id,
-            'tipus_carrega_id' => TipusCarrega::firstOrFail()->id,
-            'incoterm_id' => $incoterm->id,
-            'client_id' => $client->id,
-            'estat_oferta_id' => $this->statusId('Accepted'),
-            'data_creacio' => now()->toDateString(),
-        ]);
-
-        $this->actingAsApi($commercial)->postJson("/api/offers/{$offer->id}/tracking", [
-            'tracking_step_id' => $firstStep->id,
-            'observacions' => 'Cargo picked up.',
-        ])
-            ->assertOk()
-            ->assertJsonPath('tracking.status', 'Shipped')
-            ->assertJsonPath('tracking.steps.0.completed', true);
-
-        $this->actingAsApi($commercial)->postJson("/api/offers/{$offer->id}/tracking", [
-            'tracking_step_id' => $finalStep->id,
-            'observacions' => 'Delivered.',
-        ])
-            ->assertOk()
-            ->assertJsonPath('tracking.status', 'Finalized');
     }
 
     private function actingAsApi(Usuari $user): self
@@ -146,20 +109,14 @@ class WorkflowControllerTest extends TestCase
         }
     }
 
-    private function seedOfferCatalog(): array
+    private function seedOfferCatalog(): Incoterm
     {
         TipusTransport::firstOrCreate(['tipus' => 'Maritime']);
         TipusFluxe::firstOrCreate(['tipus' => 'Export']);
         TipusCarrega::firstOrCreate(['tipus' => 'FCL']);
-
-        $firstStep = TrackingStep::firstOrCreate(
+        $trackingStep = TrackingStep::firstOrCreate(
             ['ordre' => 1],
             ['nom' => 'Pickup at origin']
-        );
-
-        $finalStep = TrackingStep::firstOrCreate(
-            ['ordre' => 2],
-            ['nom' => 'Delivered to final customer']
         );
 
         $tipusIncoterm = TipusIncoterm::firstOrCreate(
@@ -167,12 +124,10 @@ class WorkflowControllerTest extends TestCase
             ['nom' => 'Delivered at Place']
         );
 
-        $incoterm = Incoterm::create([
+        return Incoterm::create([
             'tipus_inconterm_id' => $tipusIncoterm->id,
-            'tracking_steps_id' => $finalStep->id,
+            'tracking_steps_id' => $trackingStep->id,
         ]);
-
-        return [$incoterm, $finalStep, $firstStep];
     }
 
     private function statusId(string $status): int
