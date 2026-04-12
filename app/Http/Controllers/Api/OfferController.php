@@ -56,7 +56,7 @@ class OfferController extends Controller
             });
         }
 
-        return response()->json($query->paginate((int) $request->integer('per_page', 15)));
+        return response()->json($query->get());
     }
 
     public function store(Request $request): JsonResponse

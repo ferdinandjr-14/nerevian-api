@@ -19,6 +19,7 @@ use App\Models\TipusTransport;
 use App\Models\TipusValidacio;
 use App\Models\TrackingStep;
 use App\Models\Transportista;
+use App\Models\Usuari;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,6 +34,7 @@ class LookupController extends Controller
         return response()->json([
             'rols' => $this->hasRole($user, 'admin') ? Rol::query()->orderBy('id')->get() : [],
             'clients' => $this->hasRole($user, 'admin', 'operator', 'commercial') ? Client::query()->orderBy('nom')->get() : [],
+            'commercials' => $this->hasRole($user, 'admin', 'operator') ? Usuari::query()->where('rol_id', 3)->orderBy('nom')->get() : [],
             'estats_ofertes' => EstatOferta::query()->orderBy('id')->get(),
             'tipus_transports' => TipusTransport::query()->orderBy('id')->get(),
             'tipus_fluxes' => TipusFluxe::query()->orderBy('id')->get(),
