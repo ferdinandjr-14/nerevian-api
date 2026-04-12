@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\ClientController as AdminClientController;
+use App\Http\Controllers\Api\Admin\AdminLookupController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LookupController;
@@ -34,7 +35,11 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
     });
 
     Route::prefix('admin')->group(function (): void {
-        Route::apiResource('users', AdminUserController::class)->except(['create', 'edit']);
+        Route::get('rols', [AdminLookupController::class, 'roles']);
+        Route::get('clients/options', [AdminLookupController::class, 'clients']);
+        Route::apiResource('users', AdminUserController::class)
+            ->parameters(['users' => 'usuari'])
+            ->except(['create', 'edit']);
         Route::apiResource('clients', AdminClientController::class)->except(['create', 'edit']);
     });
 });
