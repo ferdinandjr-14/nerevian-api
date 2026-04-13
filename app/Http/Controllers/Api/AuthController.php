@@ -29,14 +29,14 @@ class AuthController extends Controller
 
         if (! $usuari || ! Hash::check($validated['contrasenya'], $usuari->contrasenya)) {
             throw ValidationException::withMessages([
-                'correu' => ['Les credencials no son correctes.'],
+                'correu' => ['Email or password incorrect'],
             ]);
         }
 
         $token = $usuari->createToken($validated['token_name'] ?? $request->userAgent() ?? 'api-token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Sessio iniciada correctament.',
+            'message' => 'Log in successful',
             'token' => $token,
             'token_type' => 'Bearer',
             'user' => $usuari,
@@ -64,7 +64,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'message' => 'Sessio tancada correctament.',
+            'message' => 'Log out successful',
         ]);
     }
 }

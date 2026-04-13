@@ -39,7 +39,7 @@ class ProfileController extends Controller
         $user->update($validated);
 
         return response()->json([
-            'message' => 'Perfil actualitzat correctament.',
+            'message' => 'Profile updated successfully',
             'user' => $user->fresh()->load(['rol', 'client']),
         ]);
     }

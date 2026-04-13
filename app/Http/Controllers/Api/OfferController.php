@@ -72,7 +72,7 @@ class OfferController extends Controller
         $oferta = Oferta::create($validated);
 
         return response()->json([
-            'message' => 'Oferta creada correctament.',
+            'message' => 'Offer created',
             'offer' => $oferta->load($this->relations),
         ], 201);
     }
@@ -103,7 +103,7 @@ class OfferController extends Controller
         $oferta->update($validated);
 
         return response()->json([
-            'message' => 'Oferta actualitzada correctament.',
+            'message' => 'Offer updated successfully',
             'offer' => $oferta->fresh()->load($this->relations),
         ]);
     }
@@ -132,7 +132,7 @@ class OfferController extends Controller
         ]);
 
         return response()->json([
-            'message' => $accepted ? 'Oferta acceptada correctament.' : 'Oferta rebutjada correctament.',
+            'message' => $accepted ? 'Offer accepted successfully' : 'Offer rejected successfully',
             'offer' => $oferta->fresh()->load($this->relations),
         ]);
     }
