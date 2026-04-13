@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
+use App\Services\SupabaseDocumentStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -11,6 +12,11 @@ use Illuminate\Validation\Rule;
 class ProfileController extends Controller
 {
     use AuthorizesApiRequests;
+
+    public function __construct(
+        private readonly SupabaseDocumentStorage $documentStorage,
+    ) {
+    }
 
     public function show(Request $request): JsonResponse
     {
@@ -41,6 +47,32 @@ class ProfileController extends Controller
         return response()->json([
             'message' => 'Profile updated successfully',
             'user' => $user->fresh()->load(['rol', 'client']),
+        ]);
+    }
+
+    public function uploadDni(Request $request): JsonResponse
+    {
+        $user = $this->currentUser($request);
+
+        $validated = $request->validate([
+            'dni' => ['required', 'file', 'max:10240'],
+        ]);
+
+        $document = $this->documentStorage->uploadDni($user, $validated['dni']);
+
+        return response()->json([
+            'message' => 'DNI uploaded successfully',
+            'document' => $this->documentStorage->getDni($user),
+            'path' => $document->path,
+        ]);
+    }
+
+    public function dni(Request $request): JsonResponse
+    {
+        $user = $this->currentUser($request);
+
+        return response()->json([
+            'document' => $this->documentStorage->getDni($user),
         ]);
     }
 }

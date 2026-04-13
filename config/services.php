@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    'supabase' => [
+        'url' => env('SUPABASE_URL'),
+        'key' => env('SUPABASE_KEY'),
+        'secret' => env('SUPABASE_SECRET'),
+        'region' => env('SUPABASE_REGION', 'eu-west-1'),
+        's3_endpoint' => env('SUPABASE_S3_ENDPOINT'),
+        'signed_url_ttl' => (int) env('SUPABASE_SIGNED_URL_TTL', 3600),
+        'buckets' => [
+            'dni' => env('SUPABASE_BUCKET_DNI', 'dni'),
+            'offers' => env('SUPABASE_BUCKET_OFFERS', 'offers'),
+        ],
+    ],
+
 ];

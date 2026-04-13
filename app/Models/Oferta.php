@@ -129,4 +129,9 @@ class Oferta extends Model
     {
         return $this->belongsTo(LiniaTransportMaritim::class, 'linia_transport_maritim_id');
     }
+
+    public function documents()
+    {
+        return $this->hasMany(DocumentOferta::class, 'oferta_id');
+    }
 }

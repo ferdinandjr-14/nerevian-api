@@ -59,4 +59,9 @@ class Usuari extends Authenticatable
     {
         return $this->hasMany(Oferta::class, 'agent_comercial_id');
     }
+
+    public function dniDocument()
+    {
+        return $this->hasOne(DniUsuari::class, 'usuari_id');
+    }
 }

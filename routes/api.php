@@ -24,6 +24,8 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
     Route::prefix('profile')->group(function (): void {
         Route::get('/', [ProfileController::class, 'show']);
         Route::put('/', [ProfileController::class, 'update']);
+        Route::get('/dni', [ProfileController::class, 'dni']);
+        Route::post('/dni', [ProfileController::class, 'uploadDni']);
     });
 
     Route::prefix('offers')->group(function (): void {
@@ -32,6 +34,8 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
         Route::get('/{oferta}', [OfferController::class, 'show']);
         Route::put('/{oferta}', [OfferController::class, 'update']);
         Route::post('/{oferta}/decision', [OfferController::class, 'respond']);
+        Route::get('/{oferta}/documents', [OfferController::class, 'documents']);
+        Route::post('/{oferta}/documents', [OfferController::class, 'uploadDocuments']);
     });
 
     Route::prefix('admin')->group(function (): void {

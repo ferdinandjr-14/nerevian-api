@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\EstatOferta;
 use App\Models\Oferta;
+use App\Services\SupabaseDocumentStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,11 @@ use Illuminate\Validation\Rule;
 class OfferController extends Controller
 {
     use AuthorizesApiRequests;
+
+    public function __construct(
+        private readonly SupabaseDocumentStorage $documentStorage,
+    ) {
+    }
 
     private array $relations = [
         'tipusTransport',
@@ -134,6 +140,34 @@ class OfferController extends Controller
         return response()->json([
             'message' => $accepted ? 'Offer accepted successfully' : 'Offer rejected successfully',
             'offer' => $oferta->fresh()->load($this->relations),
+        ]);
+    }
+
+    public function uploadDocuments(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->requireRoles($request, ['operator', 'admin']);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        $validated = $request->validate([
+            'documents' => ['required', 'array', 'min:1'],
+            'documents.*' => ['required', 'file', 'max:10240'],
+        ]);
+
+        $this->documentStorage->uploadOfferDocuments($oferta, $validated['documents']);
+
+        return response()->json([
+            'message' => 'Documents uploaded successfully',
+            'documents' => $this->documentStorage->getOfferDocuments($oferta),
+        ]);
+    }
+
+    public function documents(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->currentUser($request);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        return response()->json([
+            'documents' => $this->documentStorage->getOfferDocuments($oferta),
         ]);
     }
 
