@@ -22,4 +22,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/nerevian-api:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nerevian-api:latest
