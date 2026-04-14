@@ -21,6 +21,7 @@ class Oferta extends Model
         'client_id',
         'comentaris',
         'agent_comercial_id',
+        'preu',
         'transportista_id',
         'pes_brut',
         'volum',
@@ -45,6 +46,7 @@ class Oferta extends Model
             'data_creacio' => 'date',
             'data_validessa_inicial' => 'date',
             'data_validessa_fina' => 'date',
+            'preu' => 'decimal:2',
             'pes_brut' => 'decimal:3',
             'volum' => 'decimal:3',
         ];

@@ -185,6 +185,7 @@ class OfferController extends Controller
             'client_id' => array_merge($required, ['integer', 'exists:clients,id']),
             'comentaris' => ['nullable', 'string'],
             'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
+            'preu' => ['nullable', 'numeric', 'min:0'],
             'transportista_id' => ['nullable', 'integer', 'exists:transportistes,id'],
             'pes_brut' => ['nullable', 'numeric', 'min:0'],
             'volum' => ['nullable', 'numeric', 'min:0'],
