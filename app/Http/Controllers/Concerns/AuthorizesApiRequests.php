@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\Oferta;
 use App\Models\Usuari;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 trait AuthorizesApiRequests
@@ -44,9 +45,36 @@ trait AuthorizesApiRequests
         return in_array($this->roleName($user), $roles, true);
     }
 
+    protected function applyOfferVisibility(Builder $query, Usuari $user): void
+    {
+        if ($this->hasRole($user, 'admin', 'operator')) {
+            return;
+        }
+
+        if ($this->hasRole($user, 'client')) {
+            if ($user->client_id === null) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $query->where('client_id', $user->client_id);
+
+            return;
+        }
+
+        if ($this->hasRole($user, 'commercial')) {
+            $query->where('agent_comercial_id', $user->id);
+
+            return;
+        }
+
+        $query->whereRaw('1 = 0');
+    }
+
     protected function authorizeOfferAccess(Usuari $user, Oferta $oferta): void
     {
-        if ($this->hasRole($user, 'admin', 'operator', 'commercial')) {
+        if ($this->hasRole($user, 'admin', 'operator')) {
             return;
         }
 
@@ -54,6 +82,14 @@ trait AuthorizesApiRequests
             $this->hasRole($user, 'client')
             && $user->client_id !== null
             && (int) $user->client_id === (int) $oferta->client_id
+        ) {
+            return;
+        }
+
+        if (
+            $this->hasRole($user, 'commercial')
+            && $oferta->agent_comercial_id !== null
+            && (int) $oferta->agent_comercial_id === (int) $user->id
         ) {
             return;
         }
