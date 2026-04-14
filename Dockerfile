@@ -25,7 +25,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 
 # 5. Copiar SOLO los archivos de dependencias primero (cache de capas)
-#    ¡composer.lock es obligatorio!
 COPY composer.json composer.lock package.json ./
 
 # 6. Instalar dependencias PHP
@@ -43,7 +42,7 @@ COPY . .
 RUN composer run-script post-autoload-dump || true
 
 # 9. Instalar JS y compilar Frontend
-RUN npm ci && npm run build
+RUN npm install && npm run build
 
 # 10. Configurar Nginx
 COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
@@ -59,5 +58,4 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions \
 
 EXPOSE 80
 
-# Supervisor gestiona ambos procesos correctamente (fix del warning CMD)
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
