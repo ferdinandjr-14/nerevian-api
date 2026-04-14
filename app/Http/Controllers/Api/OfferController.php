@@ -49,6 +49,8 @@ class OfferController extends Controller
             ->with($this->relations)
             ->latest('id');
 
+        $this->applyOfferVisibility($query, $user);
+
         $scope = $request->string('scope')->toString();
         $status = $request->string('status')->toString();
 
