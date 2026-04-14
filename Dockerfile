@@ -26,7 +26,7 @@ WORKDIR /var/www
 
 # 5. Copiar SOLO los archivos de dependencias primero (cache de capas)
 #    ¡composer.lock es obligatorio!
-COPY composer.json composer.lock package.json package-lock.json ./
+COPY composer.json composer.lock package.json ./
 
 # 6. Instalar dependencias PHP
 RUN composer install \
