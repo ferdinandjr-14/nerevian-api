@@ -85,7 +85,7 @@ class Oferta extends Model
 
     public function incoterm()
     {
-        return $this->belongsTo(TipusIncoterm::class, 'incoterm_id');
+        return $this->belongsTo(Incoterm::class, 'incoterm_id');
     }
 
     public function client()

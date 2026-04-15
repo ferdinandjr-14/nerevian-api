@@ -14,7 +14,6 @@ use App\Models\Rol;
 use App\Models\TipusCarrega;
 use App\Models\TipusContenidor;
 use App\Models\TipusFluxe;
-use App\Models\TipusIncoterm;
 use App\Models\TipusTransport;
 use App\Models\TipusValidacio;
 use App\Models\TrackingStep;
@@ -42,7 +41,10 @@ class LookupController extends Controller
             'tipus_contenidors' => TipusContenidor::query()->orderBy('id')->get(),
             'tipus_validacions' => TipusValidacio::query()->orderBy('id')->get(),
             'tracking_steps' => TrackingStep::query()->orderBy('ordre')->get(),
-            'incoterms' => TipusIncoterm::query()->orderBy('id')->get(),
+            'incoterms' => Incoterm::query()
+                ->with(['tipusIncoterm', 'trackingStep'])
+                ->orderBy('id')
+                ->get(),
             'paissos' => Pais::query()->with('ciutats')->orderBy('nom')->get(),
             'aeroports' => Aeroport::query()->with('ciutat.pais')->orderBy('nom')->get(),
             'ports' => Port::query()->with('ciutat.pais')->orderBy('nom')->get(),

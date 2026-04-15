@@ -30,7 +30,8 @@ class OfferController extends Controller
         'tipusContenidor',
         'tipusValidacio',
         'estatOferta',
-        'incoterm',
+        'incoterm.tipusIncoterm',
+        'incoterm.trackingStep',
         'trackingStep',
         'client',
         'operador.rol',
@@ -232,7 +233,7 @@ class OfferController extends Controller
             'tipus_transport_id' => array_merge($required, ['integer', 'exists:tipus_transports,id']),
             'tipus_fluxe_id' => array_merge($required, ['integer', 'exists:tipus_fluxes,id']),
             'tipus_carrega_id' => array_merge($required, ['integer', 'exists:tipus_carrega,id']),
-            'incoterm_id' => array_merge($required, ['integer', 'exists:tipus_incoterms,id']),
+            'incoterm_id' => array_merge($required, ['integer', 'exists:incoterms,id']),
             'client_id' => array_merge($required, ['integer', 'exists:clients,id']),
             'comentaris' => ['nullable', 'string'],
             'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
@@ -277,9 +278,9 @@ class OfferController extends Controller
 
     private function availableTrackingSteps(Oferta $oferta): Collection
     {
-        $tipusIncotermId = (int) $oferta->incoterm_id;
+        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
 
-        if ($tipusIncotermId <= 0) {
+        if ($tipusIncotermId === null) {
             return collect();
         }
 
