@@ -30,10 +30,8 @@ class OfferController extends Controller
         'tipusContenidor',
         'tipusValidacio',
         'estatOferta',
-        'incoterm.tipusIncoterm',
-        'incoterm.trackingStep',
+        'incoterm',
         'trackingStep',
-        'currentTrackingStep',
         'client',
         'operador.rol',
         'agentComercial.rol',
@@ -187,17 +185,17 @@ class OfferController extends Controller
         ]);
     }
 
-    public function currentTracking(Request $request, Oferta $oferta): JsonResponse
+    public function trackingStep(Request $request, Oferta $oferta): JsonResponse
     {
         $user = $this->currentUser($request);
         $this->authorizeOfferAccess($user, $oferta);
 
         return response()->json([
-            'tracking_step' => $oferta->loadMissing('currentTrackingStep')->currentTrackingStep,
+            'tracking_step' => $oferta->loadMissing('trackingStep')->trackingStep,
         ]);
     }
 
-    public function updateCurrentTracking(Request $request, Oferta $oferta): JsonResponse
+    public function updateTrackingStep(Request $request, Oferta $oferta): JsonResponse
     {
         $user = $this->requireRoles($request, ['commercial', 'operator', 'admin']);
         $this->authorizeOfferAccess($user, $oferta);
@@ -213,16 +211,16 @@ class OfferController extends Controller
         );
 
         $validated = $request->validate([
-            'current_tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
+            'tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
         ]);
 
         $oferta->update([
-            'current_tracking_step_id' => $validated['current_tracking_step_id'],
+            'tracking_step_id' => $validated['tracking_step_id'],
         ]);
 
         return response()->json([
             'message' => 'Offer tracking step updated successfully',
-            'tracking_step' => $oferta->fresh()->load('currentTrackingStep')->currentTrackingStep,
+            'tracking_step' => $oferta->fresh()->load('trackingStep')->trackingStep,
         ]);
     }
 
@@ -234,7 +232,7 @@ class OfferController extends Controller
             'tipus_transport_id' => array_merge($required, ['integer', 'exists:tipus_transports,id']),
             'tipus_fluxe_id' => array_merge($required, ['integer', 'exists:tipus_fluxes,id']),
             'tipus_carrega_id' => array_merge($required, ['integer', 'exists:tipus_carrega,id']),
-            'incoterm_id' => array_merge($required, ['integer', 'exists:incoterms,id']),
+            'incoterm_id' => array_merge($required, ['integer', 'exists:tipus_incoterms,id']),
             'client_id' => array_merge($required, ['integer', 'exists:clients,id']),
             'comentaris' => ['nullable', 'string'],
             'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
@@ -279,9 +277,9 @@ class OfferController extends Controller
 
     private function availableTrackingSteps(Oferta $oferta): Collection
     {
-        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
+        $tipusIncotermId = (int) $oferta->incoterm_id;
 
-        if ($tipusIncotermId === null) {
+        if ($tipusIncotermId <= 0) {
             return collect();
         }
 

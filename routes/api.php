@@ -34,8 +34,8 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
         Route::get('/{oferta}', [OfferController::class, 'show']);
         Route::put('/{oferta}', [OfferController::class, 'update']);
         Route::get('/{oferta}/tracking', [OfferController::class, 'trackingOptions']);
-        Route::get('/{oferta}/tracking/current', [OfferController::class, 'currentTracking']);
-        Route::patch('/{oferta}/tracking', [OfferController::class, 'updateCurrentTracking']);
+        Route::get('/{oferta}/tracking/current', [OfferController::class, 'trackingStep']);
+        Route::patch('/{oferta}/tracking', [OfferController::class, 'updateTrackingStep']);
         Route::post('/{oferta}/decision', [OfferController::class, 'respond']);
         Route::get('/{oferta}/documents', [OfferController::class, 'documents']);
         Route::post('/{oferta}/documents', [OfferController::class, 'uploadDocuments']);
