@@ -39,33 +39,32 @@ class OfferController extends Controller
         'trackingEvents.updatedBy',
     ];
 
-    public function index(Request $request): JsonResponse
-    {
-        $user = $this->currentUser($request);
+   public function index(Request $request)
+   {
+       $user = $request->user();
+       // Empezamos la consulta
+       $query = Oferta::query();
 
-        $query = Oferta::query()
-            ->with($this->relations)
-            ->latest('id');
+       // FILTRO POR ROL:
+       // Si es Cliente (ID 1), solo ve sus propias ofertas a través de su client_id
+       if ($user->rol_id == 1) {
+           $query->where('client_id', $user->client_id);
+       }
+       // Si es Comercial (ID 3), quizás solo ve las que él gestiona
+       elseif ($user->rol_id == 3) {
+           $query->where('agent_comercial_id', $user->id);
+       }
+       // Admin (4) y Operador (2) ven todo (no añadimos where)
 
-        if ($this->hasRole($user, 'client')) {
-            $query->where('client_id', $user->client_id);
-        }
+       // Filtros opcionales de la documentación (scope/status)
+       if ($request->has('status')) {
+           $query->where('status', $request->status);
+       }
 
-        $scope = $request->string('scope')->toString();
-        $status = $request->string('status')->toString();
+       $offers = $query->with(['tipusTransport', 'incoterm', 'portOrigen', 'portDesti'])->get();
 
-        if ($scope !== '') {
-            $this->applyScopeFilter($query, $scope);
-        }
-
-        if ($status !== '') {
-            $query->whereHas('estatOferta', function (Builder $builder) use ($status): void {
-                $builder->where('estat', $status);
-            });
-        }
-
-        return response()->json($query->paginate((int) $request->integer('per_page', 15)));
-    }
+       return response()->json($offers);
+   }
 
     public function store(Request $request): JsonResponse
     {
