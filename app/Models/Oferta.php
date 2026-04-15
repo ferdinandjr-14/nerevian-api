@@ -18,6 +18,8 @@ class Oferta extends Model
         'tipus_fluxe_id',
         'tipus_carrega_id',
         'incoterm_id',
+        'tracking_step_id',
+        'current_tracking_step_id',
         'client_id',
         'comentaris',
         'agent_comercial_id',
@@ -90,6 +92,16 @@ class Oferta extends Model
     public function client()
     {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function trackingStep()
+    {
+        return $this->belongsTo(TrackingStep::class, 'tracking_step_id');
+    }
+
+    public function currentTrackingStep()
+    {
+        return $this->belongsTo(TrackingStep::class, 'current_tracking_step_id');
     }
 
     public function operador()

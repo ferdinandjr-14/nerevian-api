@@ -6,10 +6,12 @@ use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\EstatOferta;
 use App\Models\Oferta;
+use App\Models\TrackingStep;
 use App\Services\SupabaseDocumentStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class OfferController extends Controller
@@ -30,6 +32,8 @@ class OfferController extends Controller
         'estatOferta',
         'incoterm.tipusIncoterm',
         'incoterm.trackingStep',
+        'trackingStep',
+        'currentTrackingStep',
         'client',
         'operador.rol',
         'agentComercial.rol',
@@ -173,6 +177,55 @@ class OfferController extends Controller
         ]);
     }
 
+    public function trackingOptions(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->currentUser($request);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        return response()->json([
+            'tracking_steps' => $this->availableTrackingSteps($oferta),
+        ]);
+    }
+
+    public function currentTracking(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->currentUser($request);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        return response()->json([
+            'tracking_step' => $oferta->loadMissing('currentTrackingStep')->currentTrackingStep,
+        ]);
+    }
+
+    public function updateCurrentTracking(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->requireRoles($request, ['commercial', 'operator', 'admin']);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        $availableTrackingStepIds = $this->availableTrackingSteps($oferta)
+            ->pluck('id')
+            ->all();
+
+        abort_if(
+            empty($availableTrackingStepIds),
+            422,
+            'This offer does not have tracking steps available.'
+        );
+
+        $validated = $request->validate([
+            'current_tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
+        ]);
+
+        $oferta->update([
+            'current_tracking_step_id' => $validated['current_tracking_step_id'],
+        ]);
+
+        return response()->json([
+            'message' => 'Offer tracking step updated successfully',
+            'tracking_step' => $oferta->fresh()->load('currentTrackingStep')->currentTrackingStep,
+        ]);
+    }
+
     private function offerRules(bool $isUpdate = false): array
     {
         $required = $isUpdate ? ['sometimes'] : ['required'];
@@ -222,5 +275,21 @@ class OfferController extends Controller
         return EstatOferta::query()
             ->where('estat', $status)
             ->valueOrFail('id');
+    }
+
+    private function availableTrackingSteps(Oferta $oferta): Collection
+    {
+        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
+
+        if ($tipusIncotermId === null) {
+            return collect();
+        }
+
+        return TrackingStep::query()
+            ->whereHas('incoterms', function (Builder $builder) use ($tipusIncotermId): void {
+                $builder->where('tipus_inconterm_id', $tipusIncotermId);
+            })
+            ->orderBy('ordre')
+            ->get();
     }
 }
