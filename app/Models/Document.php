@@ -9,7 +9,7 @@ class Document extends Model
 {
     use HasFactory;
 
-    protected $table = 'documents';
+    protected $table = 'documents_ofertes';
 
     protected $fillable = [
         'oferta_id',
