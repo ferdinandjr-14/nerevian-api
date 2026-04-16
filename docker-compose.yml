@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nerevian-api:local
+    container_name: nerevian-api
+    ports:
+      - "8080:80"
+    env_file:
+      - .env.example
+    volumes:
+      - sqlite-data:/var/www/database
+      - laravel-storage:/var/www/storage
+    restart: unless-stopped
+
+volumes:
+  sqlite-data:
+  laravel-storage:
