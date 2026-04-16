@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class DniUsuari extends Model
 {
-    use HasFactory;
 
     protected $table = 'dni_usuaris';
 

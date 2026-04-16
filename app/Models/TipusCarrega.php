@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class TipusCarrega extends Model
 {
-    use HasFactory;
 
     protected $table = 'tipus_carrega';
 

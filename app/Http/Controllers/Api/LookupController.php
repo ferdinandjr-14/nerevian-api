@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Aeroport;
 use App\Models\Client;
 use App\Models\EstatOferta;
+use App\Models\Incoterm;
 use App\Models\LiniaTransportMaritim;
 use App\Models\Pais;
 use App\Models\Port;

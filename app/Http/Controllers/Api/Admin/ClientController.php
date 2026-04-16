@@ -21,13 +21,13 @@ class ClientController extends Controller
             Client::query()
                 ->withCount(['ofertes', 'usuaris'])
                 ->orderBy('nom')
-                ->paginate((int) $request->integer('per_page', 15))
+                ->get()
         );
     }
 
     public function show(Request $request, Client $client): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        $this->requireRoles($request, ['admin', 'operator']);
 
         return response()->json([
             'client' => $client->load(['usuaris.rol', 'ofertes.estatOferta']),
@@ -36,26 +36,26 @@ class ClientController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        $this->requireRoles($request, ['admin', 'operator']);
 
         $validated = $request->validate($this->rules());
         $client = Client::create($validated);
 
         return response()->json([
-            'message' => 'Client creat correctament.',
+            'message' => 'Client  created successfully.',
             'client' => $client,
         ], 201);
     }
 
     public function update(Request $request, Client $client): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        $this->requireRoles($request, ['admin', 'operator']);
 
         $validated = $request->validate($this->rules($client));
         $client->update($validated);
 
         return response()->json([
-            'message' => 'Client actualitzat correctament.',
+            'message' => 'Client updated successfully',
             'client' => $client->fresh(),
         ]);
     }
@@ -67,7 +67,7 @@ class ClientController extends Controller
         $client->delete();
 
         return response()->json([
-            'message' => 'Client eliminat correctament.',
+            'message' => 'Client delted successfully.',
         ]);
     }
 

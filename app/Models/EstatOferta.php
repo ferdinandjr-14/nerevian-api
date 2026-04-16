@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class EstatOferta extends Model
 {
-    use HasFactory;
 
     protected $table = 'estats_ofertes';
 

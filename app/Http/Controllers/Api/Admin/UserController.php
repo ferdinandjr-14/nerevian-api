@@ -53,7 +53,7 @@ class UserController extends Controller
         $usuari = Usuari::create($validated);
 
         return response()->json([
-            'message' => 'Usuari creat correctament.',
+            'message' => 'User created successfully.',
             'user' => $usuari->load(['rol', 'client']),
         ], 201);
     }
@@ -72,7 +72,7 @@ class UserController extends Controller
         $usuari->update($validated);
 
         return response()->json([
-            'message' => 'Usuari actualitzat correctament.',
+            'message' => 'User updated successfully.',
             'user' => $usuari->fresh()->load(['rol', 'client']),
         ]);
     }
@@ -86,7 +86,7 @@ class UserController extends Controller
         $usuari->delete();
 
         return response()->json([
-            'message' => 'Usuari eliminat correctament.',
+            'message' => 'User deleted successfully.',
         ]);
     }
 
@@ -111,7 +111,7 @@ class UserController extends Controller
             'rol_id' => [$usuari ? 'sometimes' : 'required', 'integer', 'exists:rols,id'],
             'client_id' => [
                 Rule::requiredIf(
-                    fn (): bool => $request->has('rol_id') && (int) $request->input('rol_id') === $clientRoleId
+                    fn(): bool => $request->has('rol_id') && (int) $request->input('rol_id') === $clientRoleId
                 ),
                 'nullable',
                 'integer',
