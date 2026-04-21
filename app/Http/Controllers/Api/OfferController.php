@@ -54,19 +54,6 @@ class OfferController extends Controller
 
         $this->applyOfferVisibility($query, $user);
 
-        $scope = $request->string('scope')->toString();
-        $status = $request->string('status')->toString();
-
-        if ($scope !== '') {
-            $this->applyScopeFilter($query, $scope);
-        }
-
-        if ($status !== '') {
-            $query->whereHas('estatOferta', function (Builder $builder) use ($status): void {
-                $builder->where('estat', $status);
-            });
-        }
-
         return response()->json($query->get());
     }
 
@@ -253,20 +240,6 @@ class OfferController extends Controller
             'tipus_contenidor_id' => ['nullable', 'integer', 'exists:tipus_contenidors,id'],
             'operador_id' => ['nullable', 'integer', 'exists:usuaris,id'],
         ];
-    }
-
-    private function applyScopeFilter(Builder $query, string $scope): void
-    {
-        match ($scope) {
-            'pending' => $query->where('estat_oferta_id', $this->statusId('Pending')),
-            'active' => $query->whereIn('estat_oferta_id', [
-                $this->statusId('Accepted'),
-                $this->statusId('Shipped'),
-                $this->statusId('Delayed'),
-            ]),
-            'finalized' => $query->where('estat_oferta_id', $this->statusId('Finalized')),
-            default => null,
-        };
     }
 
     private function statusId(string $status): int
