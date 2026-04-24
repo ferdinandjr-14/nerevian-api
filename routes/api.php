@@ -38,6 +38,8 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
         Route::post('/{oferta}/decision', [OfferController::class, 'respond']);
         Route::get('/{oferta}/documents', [OfferController::class, 'documents']);
         Route::post('/{oferta}/documents', [OfferController::class, 'uploadDocuments']);
+        Route::get('/{oferta}/tracking-step', [OfferController::class, 'trackingStep']);
+        Route::get('/{oferta}/tracking-step', [OfferController::class, 'trackingStep']);
     });
 
     Route::prefix('admin')->group(function (): void {
