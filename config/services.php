@@ -48,4 +48,15 @@ return [
         ],
     ],
 
+    'superset' => [
+        'url' => env('SUPERSET_URL', 'http://localhost:8088'),
+        'username' => env('SUPERSET_USERNAME', 'admin'),
+        'password' => env('SUPERSET_PASSWORD', 'admin'),
+        'dashboard_id' => env('SUPERSET_DASHBOARD_ID'),
+    ],
+
+    'n8n' => [
+        'webhook_url' => env('N8N_WEBHOOK_URL'),
+    ],
+
 ];
