@@ -26,7 +26,7 @@ class ChatController extends Controller
         try {
             $response = Http::acceptJson()
                 ->asJson()
-                ->timeout(60)
+                ->timeout(240)
                 ->post($webhookUrl, [
                     'message' => $validated['message'],
                     'user' => [

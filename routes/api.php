@@ -4,9 +4,11 @@ use App\Http\Controllers\Api\Admin\ClientController as AdminClientController;
 use App\Http\Controllers\Api\Admin\AdminLookupController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\OfferController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\SupersetController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -49,4 +51,7 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
             ->except(['create', 'edit']);
         Route::apiResource('clients', AdminClientController::class)->except(['create', 'edit']);
     });
+
+    Route::get('/superset/guest-token', [SupersetController::class, 'guestToken']);
+    Route::post('/chat', [ChatController::class, 'send']);
 });
