@@ -62,9 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (Throwable $exception, Request $request) {
             return response()->json([
-                'message' => app()->hasDebugModeEnabled()
-                    ? $exception->getMessage()
-                    : 'Server error.',
+                'message' => 'Server error.',
                 'errors' => [],
             ], 500);
         });
