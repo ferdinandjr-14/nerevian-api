@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Client\ConnectionException;
@@ -9,6 +10,8 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class SupersetController extends Controller
 {
@@ -16,49 +19,64 @@ class SupersetController extends Controller
 
     public function guestToken(Request $request): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $validated = $request->validate([
-            'dashboard_id' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $dashboardId = $validated['dashboard_id'] ?? config('services.superset.dashboard_id');
-        abort_if(blank($dashboardId), 422, 'Superset dashboard id is not configured.');
-
-        $accessToken = $this->loginToSuperset();
-
         try {
-            $response = $this->supersetRequest()
-                ->withToken($accessToken)
-                ->post('/api/v1/security/guest_token', [
-                    'user' => [
-                        'username' => $user->correu ?? sprintf('user-%s', $user->id),
-                        'first_name' => $user->nom,
-                        'last_name' => $user->cognoms,
-                    ],
-                    'resources' => [
-                        [
-                            'type' => 'dashboard',
-                            'id' => $dashboardId,
+            $user = $this->currentUser($request);
+            $validated = $request->validate([
+                'dashboard_id' => ['nullable', 'string', 'max:255'],
+            ]);
+
+            $dashboardId = $validated['dashboard_id'] ?? config('services.superset.dashboard_id');
+            if (blank($dashboardId)) {
+                throw ApiException::make('Superset dashboard id is not configured.', 422);
+            }
+
+            $accessToken = $this->loginToSuperset();
+
+            try {
+                $response = $this->supersetRequest()
+                    ->withToken($accessToken)
+                    ->post('/api/v1/security/guest_token', [
+                        'user' => [
+                            'username' => $user->correu ?? sprintf('user-%s', $user->id),
+                            'first_name' => $user->nom,
+                            'last_name' => $user->cognoms,
                         ],
-                    ],
-                    'rls' => [],
-                ]);
-        } catch (ConnectionException) {
-            abort(502, 'Unable to connect to Superset.');
+                        'resources' => [
+                            [
+                                'type' => 'dashboard',
+                                'id' => $dashboardId,
+                            ],
+                        ],
+                        'rls' => [],
+                    ]);
+            } catch (ConnectionException) {
+                throw ApiException::make('Unable to connect to Superset.', 502);
+            }
+
+            if ($response->failed()) {
+                throw ApiException::make(
+                    $this->resolveSupersetError($response, 'Unable to generate Superset guest token.'),
+                    502
+                );
+            }
+
+            $guestToken = $response->json('token');
+            if (blank($guestToken)) {
+                throw ApiException::make('Superset did not return a guest token.', 502);
+            }
+
+            return response()->json([
+                'token' => $guestToken,
+                'dashboard_id' => $dashboardId,
+                'superset_url' => $this->supersetUrl(),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
         }
-
-        if ($response->failed()) {
-            abort(502, $this->resolveSupersetError($response, 'Unable to generate Superset guest token.'));
-        }
-
-        $guestToken = $response->json('token');
-        abort_if(blank($guestToken), 502, 'Superset did not return a guest token.');
-
-        return response()->json([
-            'token' => $guestToken,
-            'dashboard_id' => $dashboardId,
-            'superset_url' => $this->supersetUrl(),
-        ]);
     }
 
     private function loginToSuperset(): string
@@ -71,15 +89,20 @@ class SupersetController extends Controller
                 'refresh' => true,
             ]);
         } catch (ConnectionException) {
-            abort(502, 'Unable to connect to Superset.');
+            throw ApiException::make('Unable to connect to Superset.', 502);
         }
 
         if ($response->failed()) {
-            abort(502, $this->resolveSupersetError($response, 'Unable to log in to Superset.'));
+            throw ApiException::make(
+                $this->resolveSupersetError($response, 'Unable to log in to Superset.'),
+                502
+            );
         }
 
         $accessToken = $response->json('access_token');
-        abort_if(blank($accessToken), 502, 'Superset did not return an access token.');
+        if (blank($accessToken)) {
+            throw ApiException::make('Superset did not return an access token.', 502);
+        }
 
         return $accessToken;
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Exceptions\ApiException;
 use App\Models\Oferta;
 use App\Models\Usuari;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,9 @@ trait AuthorizesApiRequests
     {
         $user = $request->user();
 
-        abort_if(! $user instanceof Usuari, 401, 'Unauthenticated.');
+        if (! $user instanceof Usuari) {
+            throw ApiException::unauthorized();
+        }
 
         $user->loadMissing('rol', 'client');
 
@@ -24,11 +27,9 @@ trait AuthorizesApiRequests
     {
         $user = $this->currentUser($request);
 
-        abort_if(
-            ! in_array($this->roleName($user), $roles, true),
-            403,
-            'You are not allowed to perform this action.'
-        );
+        if (! in_array($this->roleName($user), $roles, true)) {
+            throw ApiException::forbidden();
+        }
 
         return $user;
     }
@@ -37,7 +38,11 @@ trait AuthorizesApiRequests
     {
         $user->loadMissing('rol', 'client');
 
-        return $user->rol?->rol;
+        if ($user->rol === null) {
+            return null;
+        }
+
+        return $user->rol->rol;
     }
 
     protected function hasRole(Usuari $user, string ...$roles): bool
@@ -94,7 +99,7 @@ trait AuthorizesApiRequests
             return;
         }
 
-        abort(403, 'You are not allowed to access this offer.');
+        throw ApiException::forbidden();
     }
 
     protected function authenticationDisabled(): bool

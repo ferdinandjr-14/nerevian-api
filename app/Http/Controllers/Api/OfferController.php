@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\EstatOferta;
@@ -13,15 +14,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class OfferController extends Controller
 {
     use AuthorizesApiRequests;
 
-    public function __construct(
-        private readonly SupabaseDocumentStorage $documentStorage,
-    ) {
-    }
+    private SupabaseDocumentStorage $documentStorage;
 
     private array $relations = [
         'tipusTransport',
@@ -44,197 +44,263 @@ class OfferController extends Controller
         'liniaTransportMaritim.ciutat.pais',
     ];
 
+    public function __construct(SupabaseDocumentStorage $documentStorage)
+    {
+        $this->documentStorage = $documentStorage;
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $user = $this->currentUser($request);
+        try {
+            $user = $this->currentUser($request);
 
-        $query = Oferta::query()
-            ->with($this->relations)
-            ->latest('id');
+            $query = Oferta::query()
+                ->with($this->relations)
+                ->latest('id');
 
-        $this->applyOfferVisibility($query, $user);
+            $this->applyOfferVisibility($query, $user);
 
-        $scope = $request->string('scope')->toString();
-        $status = $request->string('status')->toString();
+            return response()->json($query->get());
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
 
-        if ($scope !== '') {
-            $this->applyScopeFilter($query, $scope);
+            throw ApiException::serverError();
         }
-
-        if ($status !== '') {
-            $query->whereHas('estatOferta', function (Builder $builder) use ($status): void {
-                $builder->where('estat', $status);
-            });
-        }
-
-        return response()->json($query->get());
     }
 
     public function store(Request $request): JsonResponse
     {
-        $user = $this->requireRoles($request, ['operator', 'admin']);
+        try {
+            $user = $this->requireRoles($request, ['operator', 'admin']);
 
-        $validated = $request->validate($this->offerRules());
-        $validated['estat_oferta_id'] = $this->statusId('Pending');
-        $validated['operador_id'] = $validated['operador_id'] ?? $user->id;
-        $validated['data_creacio'] = $validated['data_creacio'] ?? now()->toDateString();
-        $validated['rao_rebuig'] = null;
+            $validated = $request->validate($this->storeRules());
+            $validated['estat_oferta_id'] = $this->statusId('Pending');
+            $validated['operador_id'] = $validated['operador_id'] ?? $user->id;
+            $validated['data_creacio'] = $validated['data_creacio'] ?? now()->toDateString();
+            $validated['rao_rebuig'] = null;
 
-        $oferta = Oferta::create($validated);
+            $oferta = Oferta::create($validated);
 
-        return response()->json([
-            'message' => 'Offer created',
-            'offer' => $oferta->load($this->relations),
-        ], 201);
+            return response()->json([
+                'message' => 'Offer created',
+                'offer' => $oferta->load($this->relations),
+            ], 201);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function show(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->currentUser($request);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        return response()->json([
-            'offer' => $oferta->load($this->relations),
-        ]);
+            return response()->json([
+                'offer' => $oferta->load($this->relations),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function update(Request $request, Oferta $oferta): JsonResponse
     {
-        $this->requireRoles($request, ['operator', 'admin']);
+        try {
+            $this->requireRoles($request, ['operator', 'admin']);
 
-        abort_if(
-            $oferta->loadMissing('estatOferta')->estatOferta?->estat === 'Finalized',
-            409,
-            'Finalized offers cannot be edited.'
-        );
+            if ($this->offerStatus($oferta) === 'Finalized') {
+                throw ApiException::make('Finalized offers cannot be edited.', 409);
+            }
 
-        $validated = $request->validate($this->offerRules(isUpdate: true));
-        unset($validated['estat_oferta_id'], $validated['operador_id'], $validated['rao_rebuig']);
+            $validated = $request->validate($this->updateRules());
+            unset($validated['estat_oferta_id'], $validated['operador_id'], $validated['rao_rebuig']);
 
-        $oferta->update($validated);
+            $oferta->update($validated);
 
-        return response()->json([
-            'message' => 'Offer updated successfully',
-            'offer' => $oferta->fresh()->load($this->relations),
-        ]);
+            return response()->json([
+                'message' => 'Offer updated successfully',
+                'offer' => $oferta->fresh()->load($this->relations),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function respond(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->requireRoles($request, ['client']);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->requireRoles($request, ['client']);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        abort_if(
-            $oferta->loadMissing('estatOferta')->estatOferta?->estat !== 'Pending',
-            409,
-            'Only pending offers can be answered.'
-        );
+            if ($this->offerStatus($oferta) !== 'Pending') {
+                throw ApiException::make('Only pending offers can be answered.', 409);
+            }
 
-        $validated = $request->validate([
-            'decision' => ['required', Rule::in(['accept', 'reject'])],
-            'rao_rebuig' => ['nullable', 'string', 'required_if:decision,reject'],
-        ]);
+            $validated = $request->validate([
+                'decision' => ['required', Rule::in(['accept', 'reject'])],
+                'rao_rebuig' => ['nullable', 'string', 'required_if:decision,reject'],
+            ]);
 
-        $accepted = $validated['decision'] === 'accept';
+            $accepted = $validated['decision'] === 'accept';
 
-        $oferta->update([
-            'estat_oferta_id' => $this->statusId($accepted ? 'Accepted' : 'Rejected'),
-            'rao_rebuig' => $accepted ? null : $validated['rao_rebuig'],
-        ]);
+            $oferta->update([
+                'estat_oferta_id' => $this->statusId($accepted ? 'Accepted' : 'Rejected'),
+                'rao_rebuig' => $accepted ? null : $validated['rao_rebuig'],
+            ]);
 
-        return response()->json([
-            'message' => $accepted ? 'Offer accepted successfully' : 'Offer rejected successfully',
-            'offer' => $oferta->fresh()->load($this->relations),
-        ]);
+            return response()->json([
+                'message' => $accepted ? 'Offer accepted successfully' : 'Offer rejected successfully',
+                'offer' => $oferta->fresh()->load($this->relations),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function uploadDocuments(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->requireRoles($request, ['operator', 'admin']);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->requireRoles($request, ['operator', 'admin']);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        $validated = $request->validate([
-            'documents' => ['required', 'array', 'min:1'],
-            'documents.*' => ['required', 'file', 'max:10240'],
-        ]);
+            $validated = $request->validate([
+                'documents' => ['required', 'array', 'min:1'],
+                'documents.*' => ['required', 'file', 'max:10240'],
+            ]);
 
-        $this->documentStorage->uploadOfferDocuments($oferta, $validated['documents']);
+            $this->documentStorage->uploadOfferDocuments($oferta, $validated['documents']);
 
-        return response()->json([
-            'message' => 'Documents uploaded successfully',
-            'documents' => $this->documentStorage->getOfferDocuments($oferta),
-        ]);
+            return response()->json([
+                'message' => 'Documents uploaded successfully',
+                'documents' => $this->documentStorage->getOfferDocuments($oferta),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function documents(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->currentUser($request);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        return response()->json([
-            'documents' => $this->documentStorage->getOfferDocuments($oferta),
-        ]);
+            return response()->json([
+                'documents' => $this->documentStorage->getOfferDocuments($oferta),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function trackingOptions(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->currentUser($request);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        return response()->json([
-            'tracking_steps' => $this->availableTrackingSteps($oferta),
-        ]);
+            return response()->json([
+                'tracking_steps' => $this->availableTrackingSteps($oferta),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function trackingStep(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->currentUser($request);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        return response()->json([
-            'tracking_step' => $oferta->loadMissing('trackingStep')->trackingStep,
-        ]);
+            $oferta->loadMissing('trackingStep');
+
+            return response()->json([
+                'tracking_step' => $oferta->trackingStep,
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function updateTrackingStep(Request $request, Oferta $oferta): JsonResponse
     {
-        $user = $this->requireRoles($request, ['commercial', 'operator', 'admin']);
-        $this->authorizeOfferAccess($user, $oferta);
+        try {
+            $user = $this->requireRoles($request, ['commercial', 'operator', 'admin']);
+            $this->authorizeOfferAccess($user, $oferta);
 
-        $availableTrackingStepIds = $this->availableTrackingSteps($oferta)
-            ->pluck('id')
-            ->all();
+            $availableTrackingStepIds = $this->availableTrackingSteps($oferta)
+                ->pluck('id')
+                ->all();
 
-        abort_if(
-            empty($availableTrackingStepIds),
-            422,
-            'This offer does not have tracking steps available.'
-        );
+            if (empty($availableTrackingStepIds)) {
+                throw ApiException::make('This offer does not have tracking steps available.', 422);
+            }
 
-        $validated = $request->validate([
-            'tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
-        ]);
+            $validated = $request->validate([
+                'tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
+            ]);
 
-        $oferta->update([
-            'tracking_step_id' => $validated['tracking_step_id'],
-        ]);
+            $oferta->update([
+                'tracking_step_id' => $validated['tracking_step_id'],
+            ]);
 
-        return response()->json([
-            'message' => 'Offer tracking step updated successfully',
-            'tracking_step' => $oferta->fresh()->load('trackingStep')->trackingStep,
-        ]);
+            return response()->json([
+                'message' => 'Offer tracking step updated successfully',
+                'tracking_step' => $oferta->fresh()->load('trackingStep')->trackingStep,
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
-    private function offerRules(bool $isUpdate = false): array
+    private function storeRules(): array
     {
-        $required = $isUpdate ? ['sometimes'] : ['required'];
-
         return [
-            'tipus_transport_id' => array_merge($required, ['integer', 'exists:tipus_transports,id']),
-            'tipus_fluxe_id' => array_merge($required, ['integer', 'exists:tipus_fluxes,id']),
-            'tipus_carrega_id' => array_merge($required, ['integer', 'exists:tipus_carrega,id']),
-            'incoterm_id' => array_merge($required, ['integer', 'exists:incoterms,id']),
-            'client_id' => array_merge($required, ['integer', 'exists:clients,id']),
+            'tipus_transport_id' => ['required', 'integer', 'exists:tipus_transports,id'],
+            'tipus_fluxe_id' => ['required', 'integer', 'exists:tipus_fluxes,id'],
+            'tipus_carrega_id' => ['required', 'integer', 'exists:tipus_carrega,id'],
+            'incoterm_id' => ['required', 'integer', 'exists:incoterms,id'],
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
             'comentaris' => ['nullable', 'string'],
             'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
             'preu' => ['nullable', 'numeric', 'min:0'],
@@ -255,30 +321,57 @@ class OfferController extends Controller
         ];
     }
 
-    private function applyScopeFilter(Builder $query, string $scope): void
+    private function updateRules(): array
     {
-        match ($scope) {
-            'pending' => $query->where('estat_oferta_id', $this->statusId('Pending')),
-            'active' => $query->whereIn('estat_oferta_id', [
-                $this->statusId('Accepted'),
-                $this->statusId('Shipped'),
-                $this->statusId('Delayed'),
-            ]),
-            'finalized' => $query->where('estat_oferta_id', $this->statusId('Finalized')),
-            default => null,
-        };
+        return [
+            'tipus_transport_id' => ['sometimes', 'integer', 'exists:tipus_transports,id'],
+            'tipus_fluxe_id' => ['sometimes', 'integer', 'exists:tipus_fluxes,id'],
+            'tipus_carrega_id' => ['sometimes', 'integer', 'exists:tipus_carrega,id'],
+            'incoterm_id' => ['sometimes', 'integer', 'exists:incoterms,id'],
+            'client_id' => ['sometimes', 'integer', 'exists:clients,id'],
+            'comentaris' => ['nullable', 'string'],
+            'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
+            'preu' => ['nullable', 'numeric', 'min:0'],
+            'transportista_id' => ['nullable', 'integer', 'exists:transportistes,id'],
+            'pes_brut' => ['nullable', 'numeric', 'min:0'],
+            'volum' => ['nullable', 'numeric', 'min:0'],
+            'tipus_validacio_id' => ['nullable', 'integer', 'exists:tipus_validacions,id'],
+            'port_origen_id' => ['nullable', 'integer', 'exists:ports,id'],
+            'port_desti_id' => ['nullable', 'integer', 'exists:ports,id'],
+            'aeroport_origen_id' => ['nullable', 'integer', 'exists:aeroports,id'],
+            'aeroport_desti_id' => ['nullable', 'integer', 'exists:aeroports,id'],
+            'linia_transport_maritim_id' => ['nullable', 'integer', 'exists:linies_transport_maritim,id'],
+            'data_creacio' => ['nullable', 'date'],
+            'data_validessa_inicial' => ['nullable', 'date'],
+            'data_validessa_fina' => ['nullable', 'date', 'after_or_equal:data_validessa_inicial'],
+            'tipus_contenidor_id' => ['nullable', 'integer', 'exists:tipus_contenidors,id'],
+            'operador_id' => ['nullable', 'integer', 'exists:usuaris,id'],
+        ];
     }
 
     private function statusId(string $status): int
     {
-        return EstatOferta::query()
+        $estatOferta = EstatOferta::query()
             ->where('estat', $status)
-            ->valueOrFail('id');
+            ->first();
+
+        if ($estatOferta === null) {
+            throw ApiException::make("Offer status {$status} was not found.", 500);
+        }
+
+        return (int) $estatOferta->id;
     }
 
     private function availableTrackingSteps(Oferta $oferta): Collection
     {
-        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
+        $oferta->loadMissing('incoterm');
+        $incoterm = $oferta->incoterm;
+
+        if ($incoterm === null) {
+            return collect();
+        }
+
+        $tipusIncotermId = $incoterm->tipus_inconterm_id;
 
         if ($tipusIncotermId === null) {
             return collect();
@@ -290,5 +383,16 @@ class OfferController extends Controller
             })
             ->orderBy('ordre')
             ->get();
+    }
+
+    private function offerStatus(Oferta $oferta): ?string
+    {
+        $oferta->loadMissing('estatOferta');
+
+        if ($oferta->estatOferta === null) {
+            return null;
+        }
+
+        return $oferta->estatOferta->estat;
     }
 }

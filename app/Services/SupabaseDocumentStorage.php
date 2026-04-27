@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ApiException;
 use App\Models\DniUsuari;
 use App\Models\DocumentOferta;
 use App\Models\Oferta;
@@ -69,10 +70,16 @@ class SupabaseDocumentStorage
 
     public function getOfferDocuments(Oferta $offer): Collection
     {
-        return $offer->documents()
+        $documents = $offer->documents()
             ->orderBy('id')
-            ->get()
-            ->map(fn (DocumentOferta $document): array => $this->toDocumentPayload($this->bucket('offers'), $document->path));
+            ->get();
+        $payloads = collect();
+
+        foreach ($documents as $document) {
+            $payloads->push($this->toDocumentPayload($this->bucket('offers'), $document->path));
+        }
+
+        return $payloads;
     }
 
     private function uploadFile(string $bucket, string $path, UploadedFile $file): void
@@ -112,7 +119,7 @@ class SupabaseDocumentStorage
         $signedPath = $response['signedURL'] ?? $response['signedUrl'] ?? null;
 
         if (! is_string($signedPath) || $signedPath === '') {
-            abort(500, 'Supabase did not return a signed URL.');
+            throw ApiException::make('Supabase did not return a signed URL.', 500);
         }
 
         if (Str::startsWith($signedPath, ['http://', 'https://'])) {
@@ -171,19 +178,27 @@ class SupabaseDocumentStorage
             return $safeBaseName;
         }
 
-        $safeExtension = Str::of($extension)->lower()->replaceMatches('/[^a-z0-9]+/', '')->toString();
+        $safeExtension = Str::lower($extension);
+        $safeExtension = preg_replace('/[^a-z0-9]+/', '', $safeExtension);
+
+        if (! is_string($safeExtension)) {
+            $safeExtension = '';
+        }
 
         return $safeExtension === '' ? $safeBaseName : "{$safeBaseName}.{$safeExtension}";
     }
 
     private function sanitizeSegment(?string $value, string $fallback = 'document'): string
     {
-        $sanitized = Str::of($value ?? '')
-            ->ascii()
-            ->lower()
-            ->replaceMatches('/[^a-z0-9]+/', '_')
-            ->trim('_')
-            ->toString();
+        $sanitized = Str::ascii($value ?? '');
+        $sanitized = Str::lower($sanitized);
+        $sanitized = preg_replace('/[^a-z0-9]+/', '_', $sanitized);
+
+        if (! is_string($sanitized)) {
+            $sanitized = '';
+        }
+
+        $sanitized = trim($sanitized, '_');
 
         return $sanitized !== '' ? $sanitized : $fallback;
     }

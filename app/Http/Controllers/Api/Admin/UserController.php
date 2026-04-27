@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\Rol;
@@ -10,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -17,114 +19,175 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        try {
+            $this->requireRoles($request, ['admin']);
 
-        $query = Usuari::query()->with(['rol', 'client'])->orderBy('id');
+            $query = Usuari::query()->with(['rol', 'client'])->orderBy('id');
+            $role = (string) $request->input('rol', '');
 
-        if ($request->filled('rol')) {
-            $query->whereHas('rol', function ($builder) use ($request): void {
-                $builder->where('rol', $request->string('rol')->toString());
-            });
+            if ($role !== '') {
+                $query->whereHas('rol', function ($builder) use ($role): void {
+                    $builder->where('rol', $role);
+                });
+            }
+
+            if ($request->filled('client_id')) {
+                $query->where('client_id', (int) $request->input('client_id'));
+            }
+
+            return response()->json($query->paginate((int) $request->input('per_page', 15)));
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
         }
-
-        if ($request->filled('client_id')) {
-            $query->where('client_id', $request->integer('client_id'));
-        }
-
-        return response()->json($query->paginate((int) $request->integer('per_page', 15)));
     }
 
     public function show(Request $request, Usuari $usuari): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        try {
+            $this->requireRoles($request, ['admin']);
 
-        return response()->json([
-            'user' => $usuari->load(['rol', 'client']),
-        ]);
+            return response()->json([
+                'user' => $usuari->load(['rol', 'client']),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function store(Request $request): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        try {
+            $this->requireRoles($request, ['admin']);
 
-        $validated = $request->validate($this->rules($request));
-        $validated = $this->normalizePayload($validated);
+            $validated = $request->validate($this->storeRules($request));
+            $validated = $this->normalizePayload($validated);
 
-        $usuari = Usuari::create($validated);
+            $usuari = Usuari::create($validated);
 
-        return response()->json([
-            'message' => 'User created successfully.',
-            'user' => $usuari->load(['rol', 'client']),
-        ], 201);
+            return response()->json([
+                'message' => 'User created successfully.',
+                'user' => $usuari->load(['rol', 'client']),
+            ], 201);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
     public function update(Request $request, Usuari $usuari): JsonResponse
     {
-        $this->requireRoles($request, ['admin']);
+        try {
+            $this->requireRoles($request, ['admin']);
 
-        $validated = $request->validate($this->rules($request, $usuari));
-        $validated = $this->normalizePayload($validated, $usuari);
+            $validated = $request->validate($this->updateRules($request, $usuari));
+            $validated = $this->normalizePayload($validated, $usuari);
 
-        if (empty($validated['contrasenya'] ?? null)) {
-            unset($validated['contrasenya']);
+            if (empty($validated['contrasenya'] ?? null)) {
+                unset($validated['contrasenya']);
+            }
+
+            $usuari->update($validated);
+
+            return response()->json([
+                'message' => 'User updated successfully.',
+                'user' => $usuari->fresh()->load(['rol', 'client']),
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException || $exception instanceof ValidationException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
         }
-
-        $usuari->update($validated);
-
-        return response()->json([
-            'message' => 'User updated successfully.',
-            'user' => $usuari->fresh()->load(['rol', 'client']),
-        ]);
     }
 
     public function destroy(Request $request, Usuari $usuari): JsonResponse
     {
-        $admin = $this->requireRoles($request, ['admin']);
+        try {
+            $admin = $this->requireRoles($request, ['admin']);
 
-        abort_if($admin->id === $usuari->id, 422, 'You cannot delete your own account.');
+            if ($admin->id === $usuari->id) {
+                throw ApiException::make('You cannot delete your own account.', 422);
+            }
 
-        $usuari->delete();
+            $usuari->delete();
 
-        return response()->json([
-            'message' => 'User deleted successfully.',
-        ]);
+            return response()->json([
+                'message' => 'User deleted successfully.',
+            ]);
+        } catch (Throwable $exception) {
+            if ($exception instanceof ApiException) {
+                throw $exception;
+            }
+
+            throw ApiException::serverError();
+        }
     }
 
-    private function rules(Request $request, ?Usuari $usuari = null): array
-    {
-        $passwordRules = $usuari
-            ? ['nullable', 'string', 'min:8', 'confirmed']
-            : ['required', 'string', 'min:8', 'confirmed'];
-        $clientRoleId = $this->clientRoleId();
-
+    private function storeRules(Request $request): array
+    { 
         return [
-            'nom' => [$usuari ? 'sometimes' : 'required', 'string', 'max:255'],
+            'nom' => ['required', 'string', 'max:255'],
             'cognoms' => ['nullable', 'string', 'max:255'],
             'correu' => [
-                $usuari ? 'sometimes' : 'required',
+                'required',
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('usuaris', 'correu')->ignore($usuari?->id),
+                Rule::unique('usuaris', 'correu'),
             ],
-            'contrasenya' => $passwordRules,
-            'rol_id' => [$usuari ? 'sometimes' : 'required', 'integer', 'exists:rols,id'],
-            'client_id' => [
-                Rule::requiredIf(
-                    fn(): bool => $request->has('rol_id') && (int) $request->input('rol_id') === $clientRoleId
-                ),
-                'nullable',
-                'integer',
-                'exists:clients,id',
+            'contrasenya' => ['required', 'string', 'min:8', 'confirmed'],
+            'rol_id' => ['required', 'integer', 'exists:rols,id'],
+            'client_id' => $this->clientIdRules($request),
+        ];
+    }
+
+    private function updateRules(Request $request, Usuari $usuari): array
+    { 
+        return [
+            'nom' => ['sometimes', 'string', 'max:255'],
+            'cognoms' => ['nullable', 'string', 'max:255'],
+            'correu' => [
+                'sometimes',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('usuaris', 'correu')->ignore($usuari->id),
             ],
+            'contrasenya' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'rol_id' => ['sometimes', 'integer', 'exists:rols,id'],
+            'client_id' => $this->clientIdRules($request),
         ];
     }
 
     private function normalizePayload(array $validated, ?Usuari $usuari = null): array
     {
         $clientRoleId = $this->clientRoleId();
-        $resolvedRoleId = (int) ($validated['rol_id'] ?? $usuari?->rol_id ?? 0);
-        $resolvedClientId = $validated['client_id'] ?? $usuari?->client_id;
+        $resolvedRoleId = 0;
+        $resolvedClientId = null;
+
+        if (array_key_exists('rol_id', $validated)) {
+            $resolvedRoleId = (int) $validated['rol_id'];
+        } elseif ($usuari !== null) {
+            $resolvedRoleId = (int) $usuari->rol_id;
+        }
+
+        if (array_key_exists('client_id', $validated)) {
+            $resolvedClientId = $validated['client_id'];
+        } elseif ($usuari !== null) {
+            $resolvedClientId = $usuari->client_id;
+        }
 
         if ($resolvedRoleId === $clientRoleId && empty($resolvedClientId)) {
             throw ValidationException::withMessages([
@@ -142,5 +205,16 @@ class UserController extends Controller
     private function clientRoleId(): int
     {
         return (int) Rol::query()->where('rol', 'client')->value('id');
+    }
+
+    private function clientIdRules(Request $request): array
+    {
+        $rules = ['nullable', 'integer', 'exists:clients,id'];
+
+        if ($request->has('rol_id') && (int) $request->input('rol_id') === $this->clientRoleId()) {
+            array_unshift($rules, 'required');
+        }
+
+        return $rules;
     }
 }
