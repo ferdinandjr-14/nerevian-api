@@ -52,7 +52,7 @@ COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # 12. Permisos de Laravel
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions \
-        storage/framework/views bootstrap/cache && \
+    storage/framework/views bootstrap/cache /var/log/supervisor /var/run && \
     chown -R www-data:www-data /var/www && \
     chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 

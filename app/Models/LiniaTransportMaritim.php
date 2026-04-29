@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class LiniaTransportMaritim extends Model
 {
-    use HasFactory;
 
     protected $table = 'linies_transport_maritim';
 

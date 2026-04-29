@@ -33,17 +33,19 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
         Route::post('/', [OfferController::class, 'store']);
         Route::get('/{oferta}', [OfferController::class, 'show']);
         Route::put('/{oferta}', [OfferController::class, 'update']);
+        Route::get('/{oferta}/tracking', [OfferController::class, 'trackingOptions']);
+        Route::patch('/{oferta}/tracking', [OfferController::class, 'updateTrackingStep']);
         Route::post('/{oferta}/decision', [OfferController::class, 'respond']);
         Route::get('/{oferta}/documents', [OfferController::class, 'documents']);
         Route::post('/{oferta}/documents', [OfferController::class, 'uploadDocuments']);
+        Route::get('/{oferta}/tracking-step', [OfferController::class, 'trackingStep']);
     });
 
     Route::prefix('admin')->group(function (): void {
         Route::get('rols', [AdminLookupController::class, 'roles']);
         Route::get('clients/options', [AdminLookupController::class, 'clients']);
         Route::apiResource('users', AdminUserController::class)
-            ->parameters(['users' => 'usuari'])
-            ->except(['create', 'edit']);
+            ->parameters(['users' => 'usuari']);
         Route::apiResource('clients', AdminClientController::class)->except(['create', 'edit']);
     });
 });

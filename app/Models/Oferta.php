@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Oferta extends Model
 {
-    use HasFactory;
 
     protected $table = 'ofertes';
 
@@ -18,9 +17,11 @@ class Oferta extends Model
         'tipus_fluxe_id',
         'tipus_carrega_id',
         'incoterm_id',
+        'tracking_step_id',
         'client_id',
         'comentaris',
         'agent_comercial_id',
+        'preu',
         'transportista_id',
         'pes_brut',
         'volum',
@@ -45,6 +46,7 @@ class Oferta extends Model
             'data_creacio' => 'date',
             'data_validessa_inicial' => 'date',
             'data_validessa_fina' => 'date',
+            'preu' => 'decimal:2',
             'pes_brut' => 'decimal:3',
             'volum' => 'decimal:3',
         ];
@@ -88,6 +90,11 @@ class Oferta extends Model
     public function client()
     {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function trackingStep()
+    {
+        return $this->belongsTo(TrackingStep::class, 'tracking_step_id');
     }
 
     public function operador()

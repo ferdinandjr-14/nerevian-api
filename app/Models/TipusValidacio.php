@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class TipusValidacio extends Model
 {
-    use HasFactory;
 
     protected $table = 'tipus_validacions';
 

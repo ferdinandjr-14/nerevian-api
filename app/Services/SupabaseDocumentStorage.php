@@ -72,7 +72,7 @@ class SupabaseDocumentStorage
         return $offer->documents()
             ->orderBy('id')
             ->get()
-            ->map(fn (DocumentOferta $document): array => $this->toDocumentPayload($this->bucket('offers'), $document->path));
+            ->map(fn(DocumentOferta $document): array => $this->toDocumentPayload($this->bucket('offers'), $document->path));
     }
 
     private function uploadFile(string $bucket, string $path, UploadedFile $file): void
@@ -80,9 +80,7 @@ class SupabaseDocumentStorage
         $content = file_get_contents($file->getRealPath());
 
         if ($content === false) {
-            throw new RequestException(Http::response([
-                'message' => 'Unable to read uploaded file.',
-            ], 500));
+            abort(500, 'Unable to read uploaded file.');
         }
 
         Http::withHeaders($this->headers([
@@ -119,7 +117,7 @@ class SupabaseDocumentStorage
             return $signedPath;
         }
 
-        return rtrim(config('services.supabase.url'), '/').'/'.ltrim($signedPath, '/');
+        return rtrim(config('services.supabase.url'), '/') . '/' . ltrim($signedPath, '/');
     }
 
     private function toDocumentPayload(string $bucket, string $path): array
@@ -145,7 +143,7 @@ class SupabaseDocumentStorage
 
     private function buildOfferPath(Oferta $offer, UploadedFile $file): string
     {
-        return $offer->id.'_'.$this->sanitizeFileName($file->getClientOriginalName());
+        return $offer->id . '_' . $this->sanitizeFileName($file->getClientOriginalName());
     }
 
     private function displayName(string $bucket, string $path): string
@@ -194,13 +192,13 @@ class SupabaseDocumentStorage
 
         return array_merge([
             'apikey' => $key,
-            'Authorization' => 'Bearer '.$key,
+            'Authorization' => 'Bearer ' . $key,
         ], $headers);
     }
 
     private function endpoint(string $path): string
     {
-        return rtrim(config('services.supabase.url'), '/').'/'.ltrim($path, '/');
+        return rtrim(config('services.supabase.url'), '/') . '/' . ltrim($path, '/');
     }
 
     private function bucket(string $name): string

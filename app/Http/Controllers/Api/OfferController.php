@@ -6,10 +6,12 @@ use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\EstatOferta;
 use App\Models\Oferta;
+use App\Models\TrackingStep;
 use App\Services\SupabaseDocumentStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class OfferController extends Controller
@@ -30,6 +32,7 @@ class OfferController extends Controller
         'estatOferta',
         'incoterm.tipusIncoterm',
         'incoterm.trackingStep',
+        'trackingStep',
         'client',
         'operador.rol',
         'agentComercial.rol',
@@ -50,19 +53,6 @@ class OfferController extends Controller
             ->latest('id');
 
         $this->applyOfferVisibility($query, $user);
-
-        $scope = $request->string('scope')->toString();
-        $status = $request->string('status')->toString();
-
-        if ($scope !== '') {
-            $this->applyScopeFilter($query, $scope);
-        }
-
-        if ($status !== '') {
-            $query->whereHas('estatOferta', function (Builder $builder) use ($status): void {
-                $builder->where('estat', $status);
-            });
-        }
 
         return response()->json($query->get());
     }
@@ -173,6 +163,55 @@ class OfferController extends Controller
         ]);
     }
 
+    public function trackingOptions(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->currentUser($request);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        return response()->json([
+            'tracking_steps' => $this->availableTrackingSteps($oferta),
+        ]);
+    }
+
+    public function trackingStep(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->currentUser($request);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        return response()->json([
+            'tracking_step' => $oferta->loadMissing('trackingStep')->trackingStep,
+        ]);
+    }
+
+    public function updateTrackingStep(Request $request, Oferta $oferta): JsonResponse
+    {
+        $user = $this->requireRoles($request, ['commercial', 'operator', 'admin']);
+        $this->authorizeOfferAccess($user, $oferta);
+
+        $availableTrackingStepIds = $this->availableTrackingSteps($oferta)
+            ->pluck('id')
+            ->all();
+
+        abort_if(
+            empty($availableTrackingStepIds),
+            422,
+            'This offer does not have tracking steps available.'
+        );
+
+        $validated = $request->validate([
+            'tracking_step_id' => ['required', 'integer', Rule::in($availableTrackingStepIds)],
+        ]);
+
+        $oferta->update([
+            'tracking_step_id' => $validated['tracking_step_id'],
+        ]);
+
+        return response()->json([
+            'message' => 'Offer tracking step updated successfully',
+            'tracking_step' => $oferta->fresh()->load('trackingStep')->trackingStep,
+        ]);
+    }
+
     private function offerRules(bool $isUpdate = false): array
     {
         $required = $isUpdate ? ['sometimes'] : ['required'];
@@ -185,6 +224,7 @@ class OfferController extends Controller
             'client_id' => array_merge($required, ['integer', 'exists:clients,id']),
             'comentaris' => ['nullable', 'string'],
             'agent_comercial_id' => ['nullable', 'integer', 'exists:usuaris,id'],
+            'preu' => ['nullable', 'numeric', 'min:0'],
             'transportista_id' => ['nullable', 'integer', 'exists:transportistes,id'],
             'pes_brut' => ['nullable', 'numeric', 'min:0'],
             'volum' => ['nullable', 'numeric', 'min:0'],
@@ -202,24 +242,26 @@ class OfferController extends Controller
         ];
     }
 
-    private function applyScopeFilter(Builder $query, string $scope): void
-    {
-        match ($scope) {
-            'pending' => $query->where('estat_oferta_id', $this->statusId('Pending')),
-            'active' => $query->whereIn('estat_oferta_id', [
-                $this->statusId('Accepted'),
-                $this->statusId('Shipped'),
-                $this->statusId('Delayed'),
-            ]),
-            'finalized' => $query->where('estat_oferta_id', $this->statusId('Finalized')),
-            default => null,
-        };
-    }
-
     private function statusId(string $status): int
     {
         return EstatOferta::query()
             ->where('estat', $status)
             ->valueOrFail('id');
+    }
+
+    private function availableTrackingSteps(Oferta $oferta): Collection
+    {
+        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
+
+        if ($tipusIncotermId === null) {
+            return collect();
+        }
+
+        return TrackingStep::query()
+            ->whereHas('incoterms', function (Builder $builder) use ($tipusIncotermId): void {
+                $builder->where('tipus_inconterm_id', $tipusIncotermId);
+            })
+            ->orderBy('ordre')
+            ->get();
     }
 }

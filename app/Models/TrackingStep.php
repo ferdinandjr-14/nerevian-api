@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class TrackingStep extends Model
 {
-    use HasFactory;
 
     protected $table = 'tracking_steps';
 
