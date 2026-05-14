@@ -21,4 +21,10 @@ class TipusIncoterm extends Model
     {
         return $this->hasMany(Incoterm::class, 'tipus_inconterm_id');
     }
+
+    public function trackingSteps()
+    {
+        return $this->belongsToMany(TrackingStep::class, 'incoterms', 'tipus_inconterm_id', 'tracking_steps_id')
+            ->orderBy('ordre');
+    }
 }
