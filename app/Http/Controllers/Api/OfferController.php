@@ -6,9 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\EstatOferta;
 use App\Models\Oferta;
-use App\Models\TrackingStep;
 use App\Services\SupabaseDocumentStorage;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -251,17 +249,12 @@ class OfferController extends Controller
 
     private function availableTrackingSteps(Oferta $oferta): Collection
     {
-        $tipusIncotermId = $oferta->loadMissing('incoterm')->incoterm?->tipus_inconterm_id;
+        $tipusIncoterm = $oferta->loadMissing('incoterm.tipusIncoterm')->incoterm?->tipusIncoterm;
 
-        if ($tipusIncotermId === null) {
+        if ($tipusIncoterm === null) {
             return collect();
         }
 
-        return TrackingStep::query()
-            ->whereHas('incoterms', function (Builder $builder) use ($tipusIncotermId): void {
-                $builder->where('tipus_inconterm_id', $tipusIncotermId);
-            })
-            ->orderBy('ordre')
-            ->get();
+        return $tipusIncoterm->trackingSteps()->get();
     }
 }

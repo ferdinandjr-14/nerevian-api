@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\ClientController as AdminClientController;
+use App\Http\Controllers\Api\Admin\IncotermController as AdminIncotermController;
 use App\Http\Controllers\Api\Admin\AdminLookupController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
@@ -44,6 +45,9 @@ Route::middleware('auth:sanctum')->scopeBindings()->group(function (): void {
     Route::prefix('admin')->group(function (): void {
         Route::get('rols', [AdminLookupController::class, 'roles']);
         Route::get('clients/options', [AdminLookupController::class, 'clients']);
+        Route::get('tracking-steps', [AdminLookupController::class, 'trackingSteps']);
+        Route::apiResource('incoterms', AdminIncotermController::class)
+            ->parameters(['incoterms' => 'incoterm']);
         Route::apiResource('users', AdminUserController::class)
             ->parameters(['users' => 'usuari']);
         Route::apiResource('clients', AdminClientController::class)->except(['create', 'edit']);

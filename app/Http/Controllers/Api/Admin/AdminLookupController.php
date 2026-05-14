@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Rol;
+use App\Models\TrackingStep;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,6 +29,15 @@ class AdminLookupController extends Controller
 
         return response()->json([
             'clients' => Client::query()->orderBy('nom')->get(),
+        ]);
+    }
+
+    public function trackingSteps(Request $request): JsonResponse
+    {
+        $this->requireRoles($request, ['admin']);
+
+        return response()->json([
+            'tracking_steps' => TrackingStep::query()->orderBy('ordre')->get(),
         ]);
     }
 }
