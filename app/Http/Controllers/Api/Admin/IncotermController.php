@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Classes\Utilitat;
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
 use App\Models\Incoterm;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class IncotermController extends Controller
 {
@@ -47,7 +49,9 @@ class IncotermController extends Controller
 
         $validated = $request->validate($this->rules());
 
-        $incoterm = DB::transaction(function () use ($validated): TipusIncoterm {
+        DB::beginTransaction();
+
+        try {
             $incoterm = TipusIncoterm::create([
                 'codi' => $validated['codi'],
                 'nom' => $validated['nom'],
@@ -55,13 +59,19 @@ class IncotermController extends Controller
 
             $incoterm->trackingSteps()->sync($validated['tracking_step_ids']);
 
-            return $incoterm->load('trackingSteps');
-        });
+            DB::commit();
 
-        return response()->json([
-            'message' => 'Incoterm created successfully.',
-            'incoterm' => $this->formatIncoterm($incoterm),
-        ], 201);
+            return response()->json([
+                'message' => 'Incoterm created successfully.',
+                'incoterm' => $this->formatIncoterm($incoterm->load('trackingSteps')),
+            ], 201);
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => Utilitat::errorMessage($e, 'No se ha podido crear el incoterm.'),
+            ], 500);
+        }
     }
 
     public function update(Request $request, TipusIncoterm $incoterm): JsonResponse
@@ -70,7 +80,9 @@ class IncotermController extends Controller
 
         $validated = $request->validate($this->rules($incoterm));
 
-        $incoterm = DB::transaction(function () use ($incoterm, $validated): TipusIncoterm {
+        DB::beginTransaction();
+
+        try {
             $incoterm->update([
                 'codi' => $validated['codi'],
                 'nom' => $validated['nom'],
@@ -78,20 +90,28 @@ class IncotermController extends Controller
 
             $incoterm->trackingSteps()->sync($validated['tracking_step_ids']);
 
-            return $incoterm->load('trackingSteps');
-        });
+            DB::commit();
 
-        return response()->json([
-            'message' => 'Incoterm updated successfully.',
-            'incoterm' => $this->formatIncoterm($incoterm),
-        ]);
+            return response()->json([
+                'message' => 'Incoterm updated successfully.',
+                'incoterm' => $this->formatIncoterm($incoterm->load('trackingSteps')),
+            ]);
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => Utilitat::errorMessage($e, 'No se ha podido actualizar el incoterm.'),
+            ], 500);
+        }
     }
 
     public function destroy(Request $request, TipusIncoterm $incoterm): JsonResponse
     {
         $this->requireRoles($request, ['admin']);
 
-        DB::transaction(function () use ($incoterm): void {
+        DB::beginTransaction();
+
+        try {
             $incotermIds = $incoterm->incoterms()->pluck('id');
 
             if ($incotermIds->isNotEmpty()) {
@@ -105,11 +125,19 @@ class IncotermController extends Controller
             }
 
             $incoterm->delete();
-        });
 
-        return response()->json([
-            'message' => 'Incoterm deleted successfully.',
-        ]);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Incoterm deleted successfully.',
+            ]);
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => Utilitat::errorMessage($e, 'No se ha podido eliminar el incoterm.'),
+            ], 500);
+        }
     }
 
     private function rules(?TipusIncoterm $incoterm = null): array
