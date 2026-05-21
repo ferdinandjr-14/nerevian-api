@@ -6,6 +6,16 @@ use Throwable;
 
 class Utilitat
 {
+    public static function incotermOperationMessage(string $operation): string
+    {
+        return match ($operation) {
+            'store' => 'No se ha podido crear el incoterm.',
+            'update' => 'No se ha podido actualizar el incoterm.',
+            'destroy' => 'No se ha podido eliminar el incoterm.',
+            default => 'No se ha podido procesar el incoterm.',
+        };
+    }
+
     public static function errorMessage($error, ?string $fallbackMessage = null): string
     {
         $missatge = 'Error desconocido';

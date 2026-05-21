@@ -70,7 +70,7 @@ class IncotermController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'message' => Utilitat::errorMessage($e, 'No se ha podido crear el incoterm.'),
+                'message' => Utilitat::errorMessage($e, Utilitat::incotermOperationMessage('store')),
             ], 500);
         }
     }
@@ -101,7 +101,7 @@ class IncotermController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'message' => Utilitat::errorMessage($e, 'No se ha podido actualizar el incoterm.'),
+                'message' => Utilitat::errorMessage($e, Utilitat::incotermOperationMessage('update')),
             ], 500);
         }
     }
@@ -136,7 +136,7 @@ class IncotermController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'message' => Utilitat::errorMessage($e, 'No se ha podido eliminar el incoterm.'),
+                'message' => Utilitat::errorMessage($e, Utilitat::incotermOperationMessage('destroy')),
             ], 500);
         }
     }
