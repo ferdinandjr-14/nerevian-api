@@ -58,6 +58,7 @@ class IncotermController extends Controller
             ]);
 
             $incoterm->trackingSteps()->sync($validated['tracking_step_ids']);
+            
 
             DB::commit();
 
