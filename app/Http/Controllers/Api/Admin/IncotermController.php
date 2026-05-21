@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AuthorizesApiRequests;
 use App\Http\Controllers\Controller;
+use App\Models\Incoterm;
+use App\Models\Oferta;
 use App\Models\TipusIncoterm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,7 +91,21 @@ class IncotermController extends Controller
     {
         $this->requireRoles($request, ['admin']);
 
-        $incoterm->delete();
+        DB::transaction(function () use ($incoterm): void {
+            $incotermIds = $incoterm->incoterms()->pluck('id');
+
+            if ($incotermIds->isNotEmpty()) {
+                Oferta::query()
+                    ->whereIn('incoterm_id', $incotermIds)
+                    ->update(['incoterm_id' => null]);
+
+                Incoterm::query()
+                    ->whereIn('id', $incotermIds)
+                    ->delete();
+            }
+
+            $incoterm->delete();
+        });
 
         return response()->json([
             'message' => 'Incoterm deleted successfully.',
