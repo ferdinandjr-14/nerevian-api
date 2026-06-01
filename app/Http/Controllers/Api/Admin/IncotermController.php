@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Throwable;
+use Illuminate\Database\QueryException;
 
 class IncotermController extends Controller
 {
@@ -66,7 +66,7 @@ class IncotermController extends Controller
                 'message' => 'Incoterm created successfully.',
                 'incoterm' => $this->formatIncoterm($incoterm->load('trackingSteps')),
             ], 201);
-        } catch (Throwable $e) {
+        } catch (QueryException $e) {
             DB::rollBack();
 
             return response()->json([
@@ -97,7 +97,7 @@ class IncotermController extends Controller
                 'message' => 'Incoterm updated successfully.',
                 'incoterm' => $this->formatIncoterm($incoterm->load('trackingSteps')),
             ]);
-        } catch (Throwable $e) {
+        } catch (QueryException $e) {
             DB::rollBack();
 
             return response()->json([
@@ -132,7 +132,7 @@ class IncotermController extends Controller
             return response()->json([
                 'message' => 'Incoterm deleted successfully.',
             ]);
-        } catch (Throwable $e) {
+        } catch (QueryException $e) {
             DB::rollBack();
 
             return response()->json([
